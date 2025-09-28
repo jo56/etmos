@@ -1,0 +1,312 @@
+/* Advanced Theme Animations and Effects */
+
+/* Neon Cityscape Animations */
+@keyframes neonFlicker {
+  0%, 18%, 22%, 25%, 53%, 57%, 100% {
+    filter: drop-shadow(0 0 25px currentColor) drop-shadow(0 0 50px currentColor) drop-shadow(0 0 100px currentColor);
+    opacity: 1;
+  }
+  4%, 19%, 23%, 54% {
+    filter: drop-shadow(0 0 8px currentColor) drop-shadow(0 0 16px currentColor);
+    opacity: 0.7;
+  }
+}
+
+@keyframes neonPulse {
+  0%, 100% { stroke-dashoffset: 0; }
+  50% { stroke-dashoffset: 20; }
+}
+
+/* Aurora Borealis Animations */
+@keyframes auroraWave {
+  0%, 100% {
+    transform: scale(1) skewX(0deg);
+    filter: hue-rotate(0deg);
+  }
+  25% {
+    transform: scale(1.05) skewX(2deg);
+    filter: hue-rotate(15deg);
+  }
+  50% {
+    transform: scale(1.1) skewX(0deg);
+    filter: hue-rotate(30deg);
+  }
+  75% {
+    transform: scale(1.05) skewX(-2deg);
+    filter: hue-rotate(15deg);
+  }
+}
+
+@keyframes auroraFlow {
+  0% {
+    stroke-dasharray: 10 20;
+    stroke-dashoffset: 0;
+  }
+  50% {
+    stroke-dasharray: 20 10;
+    stroke-dashoffset: 30;
+  }
+  100% {
+    stroke-dasharray: 10 20;
+    stroke-dashoffset: 60;
+  }
+}
+
+/* Liquid Metal Animations */
+@keyframes liquidRipple {
+  0%, 100% {
+    transform: scale(1) rotate(0deg);
+    border-radius: 50%;
+  }
+  25% {
+    transform: scale(1.02) rotate(1deg);
+    border-radius: 45% 55% 60% 40%;
+  }
+  50% {
+    transform: scale(1.05) rotate(0deg);
+    border-radius: 40% 60% 50% 50%;
+  }
+  75% {
+    transform: scale(1.02) rotate(-1deg);
+    border-radius: 55% 45% 40% 60%;
+  }
+}
+
+@keyframes metalFlow {
+  0% {
+    stroke-dasharray: 15 25;
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dasharray: 15 25;
+    stroke-dashoffset: 40;
+  }
+}
+
+/* Ancient Constellation Animations */
+@keyframes constellationFlow {
+  0% {
+    stroke-dashoffset: 0;
+    opacity: 0.7;
+  }
+  50% {
+    stroke-dashoffset: 15;
+    opacity: 0.9;
+  }
+  100% {
+    stroke-dashoffset: 30;
+    opacity: 0.7;
+  }
+}
+
+/* Steampunk Gear Rotations */
+@keyframes steampunkRotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes steampunkFlow {
+  0%, 100% {
+    stroke-dashoffset: 0;
+  }
+  50% {
+    stroke-dashoffset: 15;
+  }
+}
+
+/* Crystalline Animations */
+@keyframes crystallineRotate {
+  from {
+    transform: rotate(0deg);
+    filter: hue-rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+    filter: hue-rotate(360deg);
+  }
+}
+
+@keyframes crystallineShimmer {
+  0%, 100% {
+    opacity: 0.85;
+    stroke-width: 2.5;
+  }
+  50% {
+    opacity: 1;
+    stroke-width: 3;
+  }
+}
+
+/* Holographic Effects */
+@keyframes holographicPulse {
+  0%, 100% {
+    opacity: 0.8;
+    stroke-width: 1.5;
+  }
+  50% {
+    opacity: 1;
+    stroke-width: 2.5;
+  }
+}
+
+@keyframes holographicFlow {
+  0% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: 12;
+  }
+}
+
+/* Watercolor Flow */
+@keyframes watercolorFlow {
+  0%, 100% {
+    stroke-width: 4;
+    opacity: 0.6;
+  }
+  50% {
+    stroke-width: 6;
+    opacity: 0.8;
+  }
+}
+
+/* Neural Network Pulse */
+@keyframes neuralPulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 15px currentColor) drop-shadow(0 0 30px currentColor);
+  }
+  50% {
+    filter: drop-shadow(0 0 25px currentColor) drop-shadow(0 0 50px currentColor);
+  }
+}
+
+@keyframes neuralFlow {
+  0% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: 12;
+  }
+}
+
+/* Circuit Board Animations */
+@keyframes circuitFlow {
+  0% {
+    stroke-dasharray: 8 12;
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dasharray: 8 12;
+    stroke-dashoffset: 20;
+  }
+}
+
+/* Origami Animations */
+@keyframes origamiFold {
+  0%, 100% {
+    transform: perspective(100px) rotateX(0deg) rotateY(0deg) rotateZ(0deg);
+  }
+  25% {
+    transform: perspective(100px) rotateX(15deg) rotateY(-10deg) rotateZ(5deg);
+  }
+  50% {
+    transform: perspective(100px) rotateX(30deg) rotateY(-20deg) rotateZ(10deg);
+  }
+  75% {
+    transform: perspective(100px) rotateX(15deg) rotateY(-10deg) rotateZ(5deg);
+  }
+}
+
+/* Star Twinkling */
+@keyframes starTwinkle {
+  0%, 100% {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+/* Manuscript Ink Animation */
+@keyframes manuscriptInk {
+  0%, 100% {
+    opacity: 0.1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.2;
+    transform: scale(1.1);
+  }
+}
+
+/* Molecular Spin Animation */
+@keyframes molecularSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Ethereal Float Animation */
+@keyframes etherealFloat {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+  }
+  50% {
+    transform: translateY(-10px) scale(1.02);
+  }
+}
+
+/* Ethereal Flow Animation */
+@keyframes etherealFlow {
+  0%, 100% {
+    stroke-dasharray: 10 20;
+    stroke-dashoffset: 0;
+  }
+  50% {
+    stroke-dasharray: 20 10;
+    stroke-dashoffset: 30;
+  }
+}
+
+/* Cyberpunk Flow Animation */
+@keyframes cyberpunkFlow {
+  0% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: 10;
+  }
+}
+
+/* Cosmic Particle Animation */
+@keyframes cosmicParticle {
+  0% {
+    offset-distance: 0%;
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    offset-distance: 100%;
+    opacity: 0;
+  }
+}
+
+/* SVG Gradients for Advanced Themes */
+.theme-gradients {
+  position: absolute;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Theme-specific SVG filters and gradients will be injected here by the graph component */
