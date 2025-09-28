@@ -942,7 +942,7 @@ class EtymonlineAPI {
       'Breton': 'br'
     };
 
-    return languageMap[languageName] || languageName.toLowerCase().substring(0, 2);
+    return languageMap[languageName] || 'unknown';
   }
 
   extractSharedRoot(text, languageName, relatedWord) {

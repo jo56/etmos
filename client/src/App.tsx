@@ -85,6 +85,12 @@ function LanguageMappingApp() {
     // Filter out obviously corrupted words
     if (text.length < 2) return true;
 
+    // Filter out nodes with 'Unknown' language
+    if (language.toLowerCase() === 'unknown') return true;
+
+    // Filter out malformed language codes (ending with dash, having numbers, etc.)
+    if (/[-\d]/.test(language) || language.length <= 1) return true;
+
     // Check for repeated characters that suggest corruption
     if (/(.)\1{2,}/.test(text)) return true; // 3+ repeated chars like "testss"
 

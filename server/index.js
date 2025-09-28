@@ -1194,6 +1194,19 @@ function validateEtymologicalConnection(connection, sourceWord, sourceLanguage) 
   const targetLanguage = connection.word.language;
   const relationship = connection.relationship;
 
+  // Reject connections with 'unknown' language
+  if (targetLanguage.toLowerCase() === 'unknown' || sourceLanguage.toLowerCase() === 'unknown') {
+    console.log(`Rejected unknown language connection: ${targetWord} (${targetLanguage})`);
+    return false;
+  }
+
+  // Reject connections with malformed language codes (containing dashes, numbers, or too short)
+  if (/[-\d]/.test(targetLanguage) || /[-\d]/.test(sourceLanguage) ||
+      targetLanguage.length <= 1 || sourceLanguage.length <= 1) {
+    console.log(`Rejected malformed language code: ${targetWord} (${targetLanguage}) or ${sourceWord} (${sourceLanguage})`);
+    return false;
+  }
+
   // Reject very low confidence connections
   if (relationship.confidence < 0.6) {
     console.log(`Rejected low confidence connection: ${targetWord} (confidence: ${relationship.confidence})`);
