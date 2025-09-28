@@ -4,8 +4,8 @@ A visual, interactive graph-based application for exploring etymological connect
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/your-username/language-mapping.git
-cd language-mapping
+git clone https://github.com/your-username/etmos.git
+cd etmos
 ```
 
 2. Install dependencies for all components:
@@ -19,6 +19,6 @@ npm run dev
 ```
 
 This will start:
-- Backend server on `http://localhost:3001`
+- Backend server on `http://localhost:54330`
 - Frontend application on `http://localhost:5173`
 
