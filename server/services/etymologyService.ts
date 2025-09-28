@@ -6,7 +6,6 @@ const wiktionaryAPI = require('./wiktionaryAPI');
 const dictionaryAPI = require('./dictionaryAPI');
 const etymonlineAPI = require('./etymonlineAPI');
 const cognateService = require('./cognateService');
-const languageMapping = require('./languageMapping');
 
 const cache = new NodeCache({ stdTTL: 3600 });
 
@@ -118,7 +117,7 @@ class EtymologyService {
 
     // RE-ENABLED: Add cognate connections with improved filtering
     try {
-      const languages = languageMapping.getCognateTargets(normalizedLanguage, 30);
+      const languages = ['en', 'es', 'fr', 'de', 'it', 'pt', 'la', 'gr', 'ru', 'pl', 'nl', 'da', 'sv', 'no'];
       const cognates: CognateResult[] = await cognateService.findCognates(normalizedWord, normalizedLanguage, languages);
 
       // Apply enhanced filtering to cognate results
@@ -329,7 +328,14 @@ class EtymologyService {
   }
 
   private areLanguageCompatible(lang1: string, lang2: string, connectionType: string): boolean {
-    return languageMapping.areLanguagesRelated(lang1, lang2);
+    // Simple compatibility check - in a real implementation this would be more sophisticated
+    const indoEuropean = ['en', 'es', 'fr', 'de', 'it', 'pt', 'la', 'gr', 'ru', 'pl', 'nl', 'da', 'sv', 'no'];
+
+    if (connectionType === 'cognate') {
+      return indoEuropean.includes(lang1) && indoEuropean.includes(lang2);
+    }
+
+    return true;
   }
 
   private extractDefinition(wiktionaryData?: WiktionaryData | null, dictionaryData?: DictionaryApiData | null): string | undefined {
@@ -411,7 +417,28 @@ class EtymologyService {
   }
 
   private getLanguageDisplay(code: string): string {
-    return languageMapping.getLanguageName(code);
+    const normalized = (code || '').toLowerCase();
+    const names: Record<string, string> = {
+      en: 'English',
+      es: 'Spanish',
+      fr: 'French',
+      de: 'German',
+      it: 'Italian',
+      pt: 'Portuguese',
+      nl: 'Dutch',
+      la: 'Latin',
+      gr: 'Greek',
+      sa: 'Sanskrit',
+      non: 'Old Norse',
+      'gem-pro': 'Proto-Germanic',
+      'ine-pro': 'Proto-Indo-European',
+      proto: 'Proto Language',
+      cel: 'Celtic',
+      ar: 'Arabic',
+      und: 'Unknown'
+    };
+
+    return names[normalized] || code;
   }
 
   private generateId(): string {
