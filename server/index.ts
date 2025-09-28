@@ -20,7 +20,8 @@ function getEtymologyService() {
   delete require.cache[require.resolve('./services/etymologyService')];
   delete require.cache[require.resolve('./services/wiktionaryAPI')];
   // Removed universal engine - using only real sources
-  return require('./services/etymologyService');
+  const service = require('./services/etymologyService');
+  return service.default || service;
 }
 
 // Use cache-busted service
