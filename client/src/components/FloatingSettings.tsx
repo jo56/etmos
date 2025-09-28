@@ -24,8 +24,6 @@ const FloatingSettings: React.FC<FloatingSettingsProps> = ({
   updateSettings,
   onNewSearch,
   onClearGraph,
-  onThemeChange,
-  currentTheme,
   isLoading,
   nodeCount,
   edgeCount

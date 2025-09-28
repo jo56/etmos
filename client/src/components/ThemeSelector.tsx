@@ -438,46 +438,6 @@ export const themes = {
     }
   },
 
-  minimalist: {
-    name: 'minimalist' as ThemeName,
-    displayName: 'Minimalist',
-    description: 'Essential forms, maximum clarity',
-    background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 50%, #f1f5f9 100%)',
-    nodeStyles: {
-      source: {
-        fill: '#0f172a',
-        stroke: '#334155',
-        strokeWidth: 2,
-        filter: 'drop-shadow(0 2px 8px rgba(15, 23, 42, 0.15))',
-      },
-      expanded: {
-        fill: '#334155',
-        stroke: '#475569',
-        strokeWidth: 1.5,
-        filter: 'drop-shadow(0 1px 6px rgba(51, 65, 85, 0.12))',
-      },
-      default: {
-        fill: '#e2e8f0',
-        stroke: '#cbd5e1',
-        strokeWidth: 1,
-        filter: 'drop-shadow(0 1px 3px rgba(226, 232, 240, 0.25))',
-      }
-    },
-    edgeStyles: {
-      stroke: '#cbd5e1',
-      strokeWidth: 1,
-      opacity: 0.6,
-    },
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-    colors: {
-      primary: '#0f172a',
-      secondary: '#475569',
-      accent: '#3b82f6',
-      text: '#1e293b'
-    }
-  },
-
-
 
   origami: {
     name: 'origami' as ThemeName,

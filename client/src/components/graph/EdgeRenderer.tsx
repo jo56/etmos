@@ -12,7 +12,7 @@ export const renderEdges = (
   if (!containerRef.current) return { allLinks: null, allLinkLabels: null, allLabelBgs: null };
 
   // Update links
-  const linkSelection = containerRef.current.selectAll<SVGLineElement, D3Link>('.link')
+  const linkSelection = containerRef.current.selectAll<SVGGElement, D3Link>('.link')
     .data(links, d => d.id);
 
   linkSelection.exit()
@@ -29,161 +29,6 @@ export const renderEdges = (
     const edgeStyle = currentTheme.edgeStyles;
 
     switch(theme) {
-      case 'neural':
-        // Synaptic connections with signal pulses
-        const neuralPath = group.append('path')
-          .attr('fill', 'none')
-          .attr('stroke', edgeStyle.stroke)
-          .attr('stroke-width', edgeStyle.strokeWidth)
-          .attr('stroke-dasharray', '8,4')
-          .attr('opacity', edgeStyle.opacity)
-          .attr('filter', edgeStyle.filter);
-
-        // Add moving signal pulse
-        group.append('circle')
-          .attr('r', 3)
-          .attr('fill', edgeStyle.stroke)
-          .style('animation', 'neuralPulse 2s linear infinite');
-        break;
-
-      case 'circuit':
-        // Circuit board traces with right angles
-        group.append('path')
-          .attr('fill', 'none')
-          .attr('stroke', edgeStyle.stroke)
-          .attr('stroke-width', edgeStyle.strokeWidth)
-          .attr('opacity', edgeStyle.opacity)
-          .attr('filter', edgeStyle.filter);
-        break;
-
-      case 'botanical':
-        // Organic vine-like curves
-        group.append('path')
-          .attr('fill', 'none')
-          .attr('stroke', edgeStyle.stroke)
-          .attr('stroke-width', edgeStyle.strokeWidth * 1.5)
-          .attr('stroke-linecap', 'round')
-          .attr('opacity', edgeStyle.opacity)
-          .attr('filter', edgeStyle.filter);
-
-        // Add leaves along the path
-        group.append('path')
-          .attr('d', 'M-3,-6 Q0,-3 3,-6 Q0,0 -3,-6')
-          .attr('fill', edgeStyle.stroke)
-          .attr('opacity', 0.6);
-        break;
-
-      case 'steampunk':
-        // Mechanical linkages with gears
-        const steamPath = group.append('path')
-          .attr('fill', 'none')
-          .attr('stroke', edgeStyle.stroke)
-          .attr('stroke-width', edgeStyle.strokeWidth)
-          .attr('stroke-dasharray', '10,5')
-          .attr('opacity', edgeStyle.opacity)
-          .attr('filter', edgeStyle.filter);
-
-        // Add small gear at midpoint
-        group.append('circle')
-          .attr('r', 4)
-          .attr('fill', 'none')
-          .attr('stroke', edgeStyle.stroke)
-          .attr('stroke-width', 1);
-        break;
-
-      case 'crystalline':
-        // Prismatic light beams
-        group.append('path')
-          .attr('fill', 'none')
-          .attr('stroke', edgeStyle.stroke)
-          .attr('stroke-width', edgeStyle.strokeWidth)
-          .attr('opacity', edgeStyle.opacity)
-          .attr('filter', edgeStyle.filter)
-          .style('animation', 'crystallineShimmer 4s ease-in-out infinite');
-        break;
-
-      case 'cosmic':
-        // Energy beams with particle effects
-        const cosmicPath = group.append('path')
-          .attr('fill', 'none')
-          .attr('stroke', edgeStyle.stroke)
-          .attr('stroke-width', edgeStyle.strokeWidth)
-          .attr('opacity', edgeStyle.opacity)
-          .attr('filter', edgeStyle.filter);
-
-        // Add energy particles
-        for (let i = 0; i < 3; i++) {
-          group.append('circle')
-            .attr('r', 1.5)
-            .attr('fill', edgeStyle.stroke)
-            .attr('opacity', 0.8)
-            .style('animation', `cosmicParticle ${2 + i}s linear infinite`);
-        }
-        break;
-
-      case 'watercolor':
-        // Flowing paint strokes
-        group.append('path')
-          .attr('fill', 'none')
-          .attr('stroke', edgeStyle.stroke)
-          .attr('stroke-width', edgeStyle.strokeWidth * 2)
-          .attr('stroke-linecap', 'round')
-          .attr('opacity', edgeStyle.opacity * 0.7)
-          .attr('filter', edgeStyle.filter);
-        break;
-
-      case 'holographic':
-        // Wireframe connections with data packets
-        group.append('path')
-          .attr('fill', 'none')
-          .attr('stroke', edgeStyle.stroke)
-          .attr('stroke-width', edgeStyle.strokeWidth)
-          .attr('stroke-dasharray', '6,4')
-          .attr('opacity', edgeStyle.opacity)
-          .attr('filter', edgeStyle.filter)
-          .style('animation', 'holographicFlow 2s linear infinite');
-
-        // Data packet
-        group.append('rect')
-          .attr('width', 6)
-          .attr('height', 3)
-          .attr('fill', edgeStyle.stroke)
-          .attr('opacity', 0.8);
-        break;
-
-      case 'molecular':
-        // Covalent bonds
-        group.append('path')
-          .attr('fill', 'none')
-          .attr('stroke', edgeStyle.stroke)
-          .attr('stroke-width', edgeStyle.strokeWidth * 1.5)
-          .attr('stroke-linecap', 'round')
-          .attr('opacity', edgeStyle.opacity);
-        break;
-
-      case 'ethereal':
-        // Flowing energy streams
-        group.append('path')
-          .attr('fill', 'none')
-          .attr('stroke', edgeStyle.stroke)
-          .attr('stroke-width', edgeStyle.strokeWidth)
-          .attr('opacity', edgeStyle.opacity)
-          .attr('filter', edgeStyle.filter)
-          .style('animation', 'etherealFlow 6s ease-in-out infinite');
-        break;
-
-      case 'cyberpunk':
-        // Digital data streams
-        group.append('path')
-          .attr('fill', 'none')
-          .attr('stroke', edgeStyle.stroke)
-          .attr('stroke-width', edgeStyle.strokeWidth)
-          .attr('stroke-dasharray', '5,5')
-          .attr('opacity', edgeStyle.opacity)
-          .attr('filter', edgeStyle.filter)
-          .style('animation', 'cyberpunkFlow 1.5s linear infinite');
-        break;
-
       case 'origami':
         // Folded paper creases
         group.append('path')
@@ -195,28 +40,102 @@ export const renderEdges = (
           .attr('filter', edgeStyle.filter);
         break;
 
-      case 'medieval':
-        // Rope and chain links
-        const medievalPath = group.append('path')
+      case 'bauhaus':
+        // Clean geometric lines
+        group.append('path')
           .attr('fill', 'none')
           .attr('stroke', edgeStyle.stroke)
-          .attr('stroke-width', edgeStyle.strokeWidth * 1.2)
-          .attr('stroke-linecap', 'round')
+          .attr('stroke-width', edgeStyle.strokeWidth)
           .attr('opacity', edgeStyle.opacity)
           .attr('filter', edgeStyle.filter);
         break;
 
-      case 'manuscript':
-        // Ornate calligraphy flourishes
+      case 'swiss':
+        // Precise grid-based connections
+        group.append('path')
+          .attr('fill', 'none')
+          .attr('stroke', edgeStyle.stroke)
+          .attr('stroke-width', edgeStyle.strokeWidth)
+          .attr('opacity', edgeStyle.opacity);
+        break;
+
+      case 'brutalist':
+        // Bold concrete-like connections
+        group.append('path')
+          .attr('fill', 'none')
+          .attr('stroke', edgeStyle.stroke)
+          .attr('stroke-width', edgeStyle.strokeWidth * 1.5)
+          .attr('opacity', edgeStyle.opacity);
+        break;
+
+      case 'art_deco':
+        // Decorative stepped lines
+        group.append('path')
+          .attr('fill', 'none')
+          .attr('stroke', edgeStyle.stroke)
+          .attr('stroke-width', edgeStyle.strokeWidth)
+          .attr('stroke-dasharray', '8,4')
+          .attr('opacity', edgeStyle.opacity);
+        break;
+
+      case 'constructivist':
+        // Angular geometric connections
+        group.append('path')
+          .attr('fill', 'none')
+          .attr('stroke', edgeStyle.stroke)
+          .attr('stroke-width', edgeStyle.strokeWidth)
+          .attr('opacity', edgeStyle.opacity);
+        break;
+
+      case 'memphis':
+        // Playful squiggly lines
+        group.append('path')
+          .attr('fill', 'none')
+          .attr('stroke', edgeStyle.stroke)
+          .attr('stroke-width', edgeStyle.strokeWidth)
+          .attr('stroke-dasharray', '6,6')
+          .attr('opacity', edgeStyle.opacity);
+        break;
+
+      case 'japanese':
+        // Minimal zen lines
         group.append('path')
           .attr('fill', 'none')
           .attr('stroke', edgeStyle.stroke)
           .attr('stroke-width', edgeStyle.strokeWidth)
           .attr('stroke-linecap', 'round')
-          .attr('opacity', edgeStyle.opacity)
-          .attr('filter', edgeStyle.filter);
+          .attr('opacity', edgeStyle.opacity);
         break;
 
+      case 'scandinavian':
+        // Clean natural connections
+        group.append('path')
+          .attr('fill', 'none')
+          .attr('stroke', edgeStyle.stroke)
+          .attr('stroke-width', edgeStyle.strokeWidth)
+          .attr('opacity', edgeStyle.opacity);
+        break;
+
+      case 'modernist':
+        // Function-focused lines
+        group.append('path')
+          .attr('fill', 'none')
+          .attr('stroke', edgeStyle.stroke)
+          .attr('stroke-width', edgeStyle.strokeWidth)
+          .attr('opacity', edgeStyle.opacity);
+        break;
+
+      case 'deconstructivist':
+        // Fragmented angular connections
+        group.append('path')
+          .attr('fill', 'none')
+          .attr('stroke', edgeStyle.stroke)
+          .attr('stroke-width', edgeStyle.strokeWidth)
+          .attr('stroke-dasharray', '4,8,2,8')
+          .attr('opacity', edgeStyle.opacity);
+        break;
+
+      case 'minimalist':
       default:
         group.append('line')
           .attr('stroke', getEdgeStyle(d.relationshipType).color)

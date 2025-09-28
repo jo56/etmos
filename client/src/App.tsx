@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { QueryClient, QueryClientProvider, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import LanguageGraph from './components/LanguageGraph';
 import SearchBar from './components/SearchBar';
@@ -45,11 +45,6 @@ function LanguageMappingApp() {
       maxNeighbors: 10
     }
   });
-  const [clickedWord, setClickedWord] = useState<Word | null>(null);
-  const [wordConnections, setWordConnections] = useState<Array<{
-    connection: any;
-    relatedWord: Word;
-  }>>([]);
   const [error, setError] = useState<string | null>(null);
   const [notification, setNotification] = useState<{
     message: string;
@@ -134,7 +129,7 @@ function LanguageMappingApp() {
   };
 
   // Helper function to check for self-referential loops
-  const wouldCreateLoop = (expandingNodeId: string, newNeighbors: any[], currentNodes: Map<string, any>, currentEdges: Map<string, any>) => {
+  const wouldCreateLoop = (expandingNodeId: string, newNeighbors: any[], currentNodes: Map<string, any>) => {
     const expandingNode = currentNodes.get(expandingNodeId);
     if (!expandingNode) return false;
 
@@ -252,12 +247,9 @@ function LanguageMappingApp() {
         const newEdges = new Map(prev.edges);
         let addedCount = 0;
         let duplicateCount = 0;
-        let loopCount = 0;
-
         // Check for self-referential loops before processing
-        if (wouldCreateLoop(variables.wordId, data.neighbors || [], newNodes, prev.edges)) {
+        if (wouldCreateLoop(variables.wordId, data.neighbors || [], newNodes)) {
           console.log('Expansion blocked: would create self-referential loop');
-          loopCount = data.neighbors?.length || 0;
 
           // Clear expanding flag but don't mark as expanded since we blocked it
           const expandingNode = newNodes.get(variables.wordId);
@@ -487,15 +479,13 @@ function LanguageMappingApp() {
         sourceWordId: null,
         settings: graphState.settings // Keep current settings
       });
-      setClickedWord(null);
-      setWordConnections([]);
 
       // Reset the loading flag to trigger new fetch
       initialGraphLoadedRef.current = false;
 
       // Force re-query by invalidating and immediately refetching
-      queryClientInstance.invalidateQueries(['initialGraph', word, language, graphState.settings.maxNeighbors]);
-      queryClientInstance.refetchQueries(['initialGraph', word, language, graphState.settings.maxNeighbors]);
+      queryClientInstance.invalidateQueries({ queryKey: ['initialGraph', word, language, graphState.settings.maxNeighbors] });
+      queryClientInstance.refetchQueries({ queryKey: ['initialGraph', word, language, graphState.settings.maxNeighbors] });
     } else {
       // Normal new search behavior
       initialGraphLoadedRef.current = false; // Reset for new search
@@ -578,11 +568,8 @@ function LanguageMappingApp() {
       );
     }
 
-    // Set clicked word for details panel
-    setClickedWord(word);
-
     // Find connections from existing graph data
-    const connections = Array.from(graphState.edges.values())
+    Array.from(graphState.edges.values())
       .filter(edge => edge.source === word.id || edge.target === word.id)
       .map(edge => {
         const isSource = edge.source === word.id;
@@ -596,7 +583,6 @@ function LanguageMappingApp() {
       })
       .filter(conn => conn.relatedWord);
 
-    setWordConnections(connections);
   };
 
   const updateSettings = (newSettings: Partial<GraphSettings>) => {
@@ -628,15 +614,13 @@ function LanguageMappingApp() {
           sourceWordId: null,
           settings: prev.settings // Keep the updated settings
         }));
-        setClickedWord(null);
-        setWordConnections([]);
-
+  
         // Reset the loading flag to trigger new fetch
         initialGraphLoadedRef.current = false;
 
         // Force re-query with new settings
-        queryClientInstance.invalidateQueries(['initialGraph', sourceWord, sourceLanguage, newSettings.maxNeighbors]);
-        queryClientInstance.refetchQueries(['initialGraph', sourceWord, sourceLanguage, newSettings.maxNeighbors]);
+        queryClientInstance.invalidateQueries({ queryKey: ['initialGraph', sourceWord, sourceLanguage, newSettings.maxNeighbors] });
+        queryClientInstance.refetchQueries({ queryKey: ['initialGraph', sourceWord, sourceLanguage, newSettings.maxNeighbors] });
       }, 0);
     }
   };
@@ -651,8 +635,6 @@ function LanguageMappingApp() {
     });
     setSourceWord('');
     setSourceLanguage('');
-    setClickedWord(null);
-    setWordConnections([]);
     setShowInitialScreen(true); // Return to initial screen
   };
 
@@ -812,8 +794,8 @@ function LanguageMappingApp() {
                   color: '#6b7280',
                   filter: 'drop-shadow(1px 2px 4px rgba(251, 146, 60, 0.1))'
                 }}
-                onMouseEnter={(e) => e.target.style.color = '#374151'}
-                onMouseLeave={(e) => e.target.style.color = '#6b7280'}
+                onMouseEnter={(e) => (e.target as HTMLElement).style.color = '#374151'}
+                onMouseLeave={(e) => (e.target as HTMLElement).style.color = '#6b7280'}
               >
                 water
               </button>
@@ -824,8 +806,8 @@ function LanguageMappingApp() {
                   color: '#6b7280',
                   filter: 'drop-shadow(1px 2px 4px rgba(251, 146, 60, 0.1))'
                 }}
-                onMouseEnter={(e) => e.target.style.color = '#374151'}
-                onMouseLeave={(e) => e.target.style.color = '#6b7280'}
+                onMouseEnter={(e) => (e.target as HTMLElement).style.color = '#374151'}
+                onMouseLeave={(e) => (e.target as HTMLElement).style.color = '#6b7280'}
               >
                 earth
               </button>
@@ -836,8 +818,8 @@ function LanguageMappingApp() {
                   color: '#6b7280',
                   filter: 'drop-shadow(1px 2px 4px rgba(251, 146, 60, 0.1))'
                 }}
-                onMouseEnter={(e) => e.target.style.color = '#374151'}
-                onMouseLeave={(e) => e.target.style.color = '#6b7280'}
+                onMouseEnter={(e) => (e.target as HTMLElement).style.color = '#374151'}
+                onMouseLeave={(e) => (e.target as HTMLElement).style.color = '#6b7280'}
               >
                 fire
               </button>
@@ -856,7 +838,7 @@ function LanguageMappingApp() {
           nodes={graphNodes}
           edges={graphEdges}
           onNodeClick={handleNodeClick}
-          centerNode={graphState.sourceWordId}
+          centerNode={graphState.sourceWordId || undefined}
           theme={currentTheme}
           fullPage={true}
         />
