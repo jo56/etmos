@@ -22,3 +22,9 @@ This will start:
 - Backend server on `http://localhost:54330`
 - Frontend application on `http://localhost:5173`
 
+### Controls
+
+The settings menu can be accessed by clicking on the icon in the top left of the screen
+
+Press **Shift** to toggle settings menu visbility
+
