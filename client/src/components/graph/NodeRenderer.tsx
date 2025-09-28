@@ -46,18 +46,20 @@ export const renderNodes = (
       }
 
       if (onNodeClick) {
-        onNodeClick(d as Word);
+        // Fix: Pass d.word, not the entire d object
+        onNodeClick(d.word);
       }
     })
     .on('mouseenter', (event, d) => {
       if (onNodeHover) {
-        onNodeHover(d as Word);
+         // Fix: Pass d.word, not the entire d object
+        onNodeHover(d.word);
       }
       if (onMouseMove) {
         onMouseMove(event as MouseEvent);
       }
     })
-    .on('mousemove', (event, d) => {
+    .on('mousemove', (event) => { // d is not used here
       if (onMouseMove) {
         onMouseMove(event as MouseEvent);
       }
@@ -99,8 +101,6 @@ export const renderNodes = (
 
     for (let i = 0; i < sides; i++) {
       const angle = (i * 2 * Math.PI) / sides;
-      const x = Math.cos(angle) * radius;
-      const y = Math.sin(angle) * radius;
 
       // Create beveled corners by slightly adjusting radius for alternate points
       const adjustedRadius = (i % 2 === 0) ? radius : radius - cornerRadius;
@@ -131,34 +131,6 @@ export const renderNodes = (
         .style('animation', 'spin 1s linear infinite');
     }
 
-    // Add text content
-    const textGroup = group.append('g')
-      .attr('class', 'node-text');
-
-    // Word text
-    const wordText = textGroup.append('text')
-      .attr('text-anchor', 'middle')
-      .attr('dy', '-0.2em')
-      .style('font-size', `${d.textMetrics?.wordFontSize || 12}px`)
-      .style('font-weight', '500')
-      .style('fill', '#1f2937')
-      .style('font-family', 'Inter, sans-serif')
-      .style('pointer-events', 'none')
-      .style('user-select', 'none')
-      .text(d.word);
-
-    // Language text
-    const langText = textGroup.append('text')
-      .attr('text-anchor', 'middle')
-      .attr('dy', '1em')
-      .style('font-size', `${d.textMetrics?.langFontSize || 10}px`)
-      .style('font-weight', '400')
-      .style('fill', '#6b7280')
-      .style('font-family', 'Inter, sans-serif')
-      .style('pointer-events', 'none')
-      .style('user-select', 'none')
-      .text(`(${d.language || 'unknown'})`);
-  });
 
   newNodes.transition()
     .duration(300)
