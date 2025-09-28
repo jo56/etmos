@@ -1,4 +1,5 @@
 const NodeCache = require('node-cache');
+const languageMapping = require('./languageMapping');
 
 // Cache cognate lookups for 4 hours
 const cache = new NodeCache({ stdTTL: 14400 });
@@ -159,7 +160,11 @@ class CognateService {
     };
   }
 
-  async findCognates(word, sourceLanguage, targetLanguages = ['en', 'es', 'fr', 'de', 'it']) {
+  async findCognates(word, sourceLanguage, targetLanguages = null) {
+    // Use comprehensive language mapping if no target languages specified
+    if (!targetLanguages) {
+      targetLanguages = languageMapping.getCognateTargets(sourceLanguage, 25);
+    }
     const cacheKey = `cognates_${word}_${sourceLanguage}_${targetLanguages.join('_')}`;
     const cached = cache.get(cacheKey);
     if (cached) {
@@ -263,34 +268,7 @@ class CognateService {
   }
 
   getLanguageFamily(languageCode) {
-    const families = {
-      'en': ['germanic', 'indo_european'],
-      'de': ['germanic', 'indo_european'],
-      'nl': ['germanic', 'indo_european'],
-      'da': ['germanic', 'indo_european'],
-      'sv': ['germanic', 'indo_european'],
-      'no': ['germanic', 'indo_european'],
-
-      'es': ['romance', 'indo_european'],
-      'fr': ['romance', 'indo_european'],
-      'it': ['romance', 'indo_european'],
-      'pt': ['romance', 'indo_european'],
-      'ro': ['romance', 'indo_european'],
-      'ca': ['romance', 'indo_european'],
-
-      'la': ['latin', 'indo_european'],
-      'gr': ['hellenic', 'indo_european'],
-      'ru': ['slavic', 'indo_european'],
-      'pl': ['slavic', 'indo_european'],
-      'cs': ['slavic', 'indo_european'],
-
-      'ar': ['semitic'],
-      'he': ['semitic'],
-      'hi': ['indo_aryan', 'indo_european'],
-      'sa': ['indo_aryan', 'indo_european']
-    };
-
-    return families[languageCode] || ['unknown'];
+    return languageMapping.getLanguageFamily(languageCode);
   }
 
   deduplicateCognates(cognates) {
@@ -321,26 +299,7 @@ class CognateService {
 
   // Get language name for display
   getLanguageName(code) {
-    const names = {
-      'en': 'English',
-      'es': 'Spanish',
-      'fr': 'French',
-      'de': 'German',
-      'it': 'Italian',
-      'pt': 'Portuguese',
-      'nl': 'Dutch',
-      'la': 'Latin',
-      'gr': 'Greek',
-      'ru': 'Russian',
-      'pl': 'Polish',
-      'cs': 'Czech',
-      'ar': 'Arabic',
-      'he': 'Hebrew',
-      'hi': 'Hindi',
-      'sa': 'Sanskrit'
-    };
-
-    return names[code] || code.toUpperCase();
+    return languageMapping.getLanguageName(code);
   }
 
   // Check if one word is a derivative of another (same logic as EtymologyService)
@@ -418,10 +377,11 @@ class CognateService {
 
   // Check if words are cross-language derivatives (e.g., English "nation" vs Spanish "nación")
   isCrossLanguageDerivative(source, target, sourceLang, targetLang) {
-    // Romance language patterns - similar roots with language-specific endings
-    const romanceLanguages = ['es', 'fr', 'it', 'pt', 'ca', 'ro'];
-    const isSourceRomance = romanceLanguages.includes(sourceLang);
-    const isTargetRomance = romanceLanguages.includes(targetLang);
+    // Romance language patterns - use comprehensive mapping
+    const sourceFamily = languageMapping.getLanguageFamily(sourceLang);
+    const targetFamily = languageMapping.getLanguageFamily(targetLang);
+    const isSourceRomance = sourceFamily.includes('romance');
+    const isTargetRomance = targetFamily.includes('romance');
 
     if (isSourceRomance && isTargetRomance) {
       // Remove common Romance endings to find root
@@ -456,10 +416,9 @@ class CognateService {
       }
     }
 
-    // Germanic language patterns
-    const germanicLanguages = ['en', 'de', 'nl', 'da', 'sv', 'no'];
-    const isSourceGermanic = germanicLanguages.includes(sourceLang);
-    const isTargetGermanic = germanicLanguages.includes(targetLang);
+    // Germanic language patterns - use comprehensive mapping
+    const isSourceGermanic = sourceFamily.includes('germanic');
+    const isTargetGermanic = targetFamily.includes('germanic');
 
     if (isSourceGermanic && isTargetGermanic) {
       // Remove Germanic endings

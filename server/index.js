@@ -3,6 +3,8 @@ const cors = require('cors');
 const NodeCache = require('node-cache');
 // Using only real etymology sources from Wiktionary and Dictionary API
 
+const languageMapping = require('./services/languageMapping');
+
 // Development cache-busting mechanism
 function getEtymologyService() {
   // Always clear cache in development to pick up changes immediately
@@ -1230,36 +1232,7 @@ function validateEtymologicalConnection(connection, sourceWord, sourceLanguage) 
 
 // Check if two language families are etymologically related
 function areLanguageFamiliesRelated(lang1, lang2) {
-  const indoEuropeanLanguages = [
-    'en', 'de', 'nl', 'sv', 'da', 'no', 'is', 'fo', // Germanic
-    'fr', 'es', 'it', 'pt', 'ro', 'ca', // Romance
-    'la', 'grc', 'gr', // Classical
-    'ru', 'pl', 'cs', 'sk', 'bg', 'hr', 'sr', 'sl', // Slavic
-    'ga', 'cy', 'br', 'gd', // Celtic
-    'hi', 'ur', 'bn', 'pa', 'gu', 'mr', 'ne', 'si', // Indo-Iranian
-    'sa', 'ine-pro', 'gem-pro' // Ancient/Proto
-  ];
-
-  const semiticLanguages = ['ar', 'he', 'am', 'ti'];
-  const sinoTibetanLanguages = ['zh', 'bo', 'my'];
-  const afroAsiaticLanguages = ['ar', 'he', 'am', 'ti', 'so', 'om'];
-
-  // Both Indo-European
-  if (indoEuropeanLanguages.includes(lang1) && indoEuropeanLanguages.includes(lang2)) {
-    return true;
-  }
-
-  // Both Semitic
-  if (semiticLanguages.includes(lang1) && semiticLanguages.includes(lang2)) {
-    return true;
-  }
-
-  // Both Sino-Tibetan
-  if (sinoTibetanLanguages.includes(lang1) && sinoTibetanLanguages.includes(lang2)) {
-    return true;
-  }
-
-  return false;
+  return languageMapping.areLanguagesRelated(lang1, lang2);
 }
 
 // Check if a word is a modern compound formation
@@ -1806,7 +1779,7 @@ async function generateFallbackConnections(wordId, language, maxNodes) {
   // PRIORITY 1: Real cognate service - only legitimate linguistic cognates
   try {
     const cognateService = require('./services/cognateService');
-    const cognateLanguages = ['es', 'fr', 'de', 'it', 'pt', 'la', 'ru', 'nl', 'pl', 'sv', 'da', 'no', 'is', 'ga', 'cy', 'he', 'ar', 'hi', 'sa'];
+    const cognateLanguages = languageMapping.getCognateTargets(language, 50);
     const cognates = await cognateService.findCognates(baseWord, language, cognateLanguages);
 
     // Add ONLY authentic cognates found by the service
