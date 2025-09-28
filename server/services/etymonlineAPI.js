@@ -205,7 +205,7 @@ class EtymonlineAPI {
 
             const languageCode = this.mapLanguageNameToCode(languageName);
             const sharedRoot = this.extractSharedRoot(text, languageName, etymologicalWord);
-            const relationshipType = this.determineRelationshipType(languageName, etymologicalWord, text);
+            const relationshipType = this.determineRelationshipType(languageName, etymologicalWord);
 
             const connection = {
               word: {
@@ -584,7 +584,7 @@ class EtymonlineAPI {
           const validation = this.validateEtymologicalContext(fullContext, 50, languageInfo.languageName, underlinedWord);
 
           if (validation.isValid) {
-            const relationshipType = this.determineRelationshipType(languageInfo.languageName, underlinedWord, fullContext);
+            const relationshipType = this.determineRelationshipType(languageInfo.languageName, underlinedWord);
 
             etymologies.push({
               word: {
@@ -715,7 +715,7 @@ class EtymonlineAPI {
         const validation = this.validateEtymologicalContext(fullContext, 50, languageInfo.languageName, linkedWordText);
 
         if (validation.isValid || isRelatedWord) {
-          const relationshipType = this.determineRelationshipType(languageInfo.languageName, linkedWordText, fullContext);
+          const relationshipType = this.determineRelationshipType(languageInfo.languageName, linkedWordText);
           const baseConfidence = isRelatedWord ? 0.85 : validation.confidence;
           const finalConfidence = Math.min(baseConfidence * isInEtymologicalContext.confidence * 0.9, 0.95);
 
@@ -840,7 +840,7 @@ class EtymonlineAPI {
 
             if (validation.isValid) {
               const languageCode = this.mapLanguageNameToCode(languageName);
-              const relationshipType = this.determineRelationshipType(languageName, italicWord, fullContext);
+              const relationshipType = this.determineRelationshipType(languageName, italicWord);
 
               etymologies.push({
                 word: {
@@ -1007,80 +1007,41 @@ class EtymonlineAPI {
     return null;
   }
 
-  determineRelationshipType(languageName, relatedWord, context = '') {
+  determineRelationshipType(languageName, relatedWord) {
     // Determine relationship type based on language patterns
     if (languageName.includes('Proto-')) {
       return 'etymology';
     }
 
     const langLower = languageName.toLowerCase();
-    const contextLower = context.toLowerCase();
 
-    // Check for explicit borrowing indicators in context
-    if (contextLower.includes('from ' + langLower) ||
-        contextLower.includes('borrowed from ' + langLower) ||
-        contextLower.includes('via ' + langLower)) {
-      return 'borrowing';
+    // Germanic languages
+    if (['old english', 'old saxon', 'old frisian', 'old high german', 'old norse', 'gothic', 'proto-germanic'].includes(langLower)) {
+      return 'cognate_germanic';
     }
 
-    // Use the comprehensive language mapping service instead of hardcoded lists
-    const languageMapping = require('./languageMapping');
-
-    try {
-      const sourceLanguageCode = 'en'; // Assuming English as source
-      const targetLanguageCode = this.mapLanguageNameToCode(languageName);
-
-      // Check if languages are from the same family using the language mapping service
-      const areRelated = languageMapping.areLanguagesRelated(sourceLanguageCode, targetLanguageCode);
-
-      if (!areRelated) {
-        // Different language families = borrowing
-        return 'borrowing';
-      }
-
-      // Same language family - determine specific cognate type based on family structure
-      const sourceFamily = languageMapping.getLanguageFamily(sourceLanguageCode);
-      const targetFamily = languageMapping.getLanguageFamily(targetLanguageCode);
-
-      // Create cognate type based on the most specific shared family level
-      const sharedFamily = this.findSharedFamilyLevel(sourceFamily, targetFamily);
-
-      if (sharedFamily) {
-        // Convert family name to cognate type (e.g., 'germanic' -> 'cognate_germanic')
-        const cognateType = 'cognate_' + sharedFamily.replace(/-/g, '_');
-        return cognateType;
-      }
-
-      // Fallback to generic cognate if same top-level family
-      if (sourceFamily[0] === targetFamily[0]) {
-        return 'cognate_' + sourceFamily[0].replace(/-/g, '_');
-      }
-
-      return 'cognate';
-
-    } catch (error) {
-      console.log(`Error determining relationship type for ${languageName}: ${error.message}`);
-
-      // Fallback: check for proto-languages
-      if (langLower.includes('proto-') || langLower.includes('pie') || langLower === 'proto-indo-european') {
-        return 'cognate_ancient';
-      }
-
-      // If we can't determine the family relationship, assume borrowing for safety
-      // This prevents false cognate classifications
-      return 'borrowing';
+    // Romance languages
+    if (['latin', 'old french', 'middle french', 'proto-romance'].includes(langLower)) {
+      return 'cognate_romance';
     }
-  }
 
-  // Helper method to find the most specific shared family level
-  findSharedFamilyLevel(family1, family2) {
-    // Find the deepest level where both families share a classification
-    for (let i = Math.min(family1.length, family2.length) - 1; i >= 0; i--) {
-      if (family1[i] === family2[i]) {
-        return family1[i];
-      }
+    // Slavic languages
+    if (['old church slavonic', 'proto-slavic', 'russian', 'polish', 'czech'].includes(langLower)) {
+      return 'cognate_slavic';
     }
-    return null;
+
+    // Celtic languages
+    if (['old irish', 'welsh', 'breton', 'proto-celtic'].includes(langLower)) {
+      return 'cognate_celtic';
+    }
+
+    // Ancient languages
+    if (['ancient greek', 'sanskrit', 'proto-indo-european', 'pie'].includes(langLower)) {
+      return 'cognate_ancient';
+    }
+
+    // Default to cognate for related languages
+    return 'cognate';
   }
 
   // Extract language information from context around a word

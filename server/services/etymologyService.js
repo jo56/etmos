@@ -5,7 +5,6 @@ const wiktionaryAPI = require('./wiktionaryAPI');
 const dictionaryAPI = require('./dictionaryAPI');
 const etymonlineAPI = require('./etymonlineAPI');
 const cognateService = require('./cognateService');
-const languageMapping = require('./languageMapping');
 
 const cache = new NodeCache({ stdTTL: 3600 });
 
@@ -94,7 +93,7 @@ class EtymologyService {
 
     // RE-ENABLED: Add cognate connections with improved filtering
     try {
-      const languages = languageMapping.getCognateTargets(normalizedLanguage, 30);
+      const languages = ['en', 'es', 'fr', 'de', 'it', 'pt', 'la', 'gr', 'ru', 'pl', 'nl', 'da', 'sv', 'no'];
       const cognates = await cognateService.findCognates(normalizedWord, normalizedLanguage, languages);
 
       // Apply enhanced filtering to cognate results
@@ -577,7 +576,7 @@ class EtymologyService {
 
       // IMPROVED: Enhanced validation of the connection before considering it
       if (!this.isValidEtymologicalConnection(connection, sourceWord)) {
-        console.log(`Skipping invalid connection: ${comparisonText} (${comparisonLang}) - relationship type: ${connection.relationship.type} - confidence: ${connection.relationship.confidence}`);
+        console.log(`Skipping invalid connection: ${comparisonText} (${comparisonLang})`);
         continue;
       }
 
@@ -742,8 +741,20 @@ class EtymologyService {
       return true;
     }
 
-    // Use comprehensive language mapping to check family compatibility
-    if (languageMapping.areLanguagesRelated(lang1, lang2)) {
+    // Same language family groups
+    const indoEuropean = ['en', 'de', 'nl', 'sv', 'da', 'no', 'fr', 'es', 'it', 'pt', 'ro', 'la', 'grc', 'gr', 'ru', 'pl', 'cs', 'ga', 'cy', 'sa'];
+    const semitic = ['ar', 'he', 'am'];
+    const sino = ['zh', 'ja', 'ko'];
+
+    const lang1IE = indoEuropean.includes(lang1);
+    const lang2IE = indoEuropean.includes(lang2);
+    const lang1Sem = semitic.includes(lang1);
+    const lang2Sem = semitic.includes(lang2);
+    const lang1Sino = sino.includes(lang1);
+    const lang2Sino = sino.includes(lang2);
+
+    // Same family is always compatible
+    if ((lang1IE && lang2IE) || (lang1Sem && lang2Sem) || (lang1Sino && lang2Sino)) {
       return true;
     }
 
@@ -775,30 +786,33 @@ class EtymologyService {
 
   getLanguageCodeFromName(name) {
     const normalized = name.toLowerCase();
-
-    // Use the comprehensive language mapping for name-to-code conversion
-    for (const [code, fullName] of Object.entries(languageMapping.languageNames)) {
-      if (fullName.toLowerCase() === normalized || normalized.startsWith(fullName.toLowerCase())) {
-        return code;
-      }
-    }
-
-    // Extended mapping for common historical variants
-    const extendedMapping = [
+    const mapping = [
       ['proto-indo-european', 'ine-pro'],
       ['proto-germanic', 'gem-pro'],
       ['proto', 'proto'],
-      ['old english', 'ang'],
-      ['middle english', 'enm'],
-      ['old french', 'fro'],
-      ['middle french', 'frm'],
-      ['ancient greek', 'grc'],
+      ['old english', 'en'],
+      ['middle english', 'en'],
+      ['old french', 'fr'],
+      ['middle french', 'fr'],
+      ['latin', 'la'],
+      ['greek', 'gr'],
+      ['ancient greek', 'gr'],
+      ['sanskrit', 'sa'],
       ['old norse', 'non'],
-      ['old high german', 'goh'],
-      ['middle high german', 'gmh']
+      ['old high german', 'de'],
+      ['middle high german', 'de'],
+      ['german', 'de'],
+      ['dutch', 'nl'],
+      ['spanish', 'es'],
+      ['italian', 'it'],
+      ['portuguese', 'pt'],
+      ['english', 'en'],
+      ['french', 'fr'],
+      ['celtic', 'cel'],
+      ['arabic', 'ar']
     ];
 
-    for (const [prefix, code] of extendedMapping) {
+    for (const [prefix, code] of mapping) {
       if (normalized.startsWith(prefix)) {
         return code;
       }
@@ -812,7 +826,28 @@ class EtymologyService {
   }
 
   getLanguageDisplay(code) {
-    return languageMapping.getLanguageName(code);
+    const normalized = (code || '').toLowerCase();
+    const names = {
+      en: 'English',
+      es: 'Spanish',
+      fr: 'French',
+      de: 'German',
+      it: 'Italian',
+      pt: 'Portuguese',
+      nl: 'Dutch',
+      la: 'Latin',
+      gr: 'Greek',
+      sa: 'Sanskrit',
+      non: 'Old Norse',
+      'gem-pro': 'Proto-Germanic',
+      'ine-pro': 'Proto-Indo-European',
+      proto: 'Proto Language',
+      cel: 'Celtic',
+      ar: 'Arabic',
+      und: 'Unknown'
+    };
+
+    return names[normalized] || names[code] || code.toUpperCase();
   }
 
   generateId() {
@@ -913,10 +948,9 @@ class EtymologyService {
   // Check if words are cross-language derivatives (e.g., English "nation" vs Spanish "nación")
   isCrossLanguageDerivative(source, target, sourceLang, targetLang) {
     // Romance language patterns - similar roots with language-specific endings
-    const sourceFamily = languageMapping.getLanguageFamily(sourceLang);
-    const targetFamily = languageMapping.getLanguageFamily(targetLang);
-    const isSourceRomance = sourceFamily.includes('romance');
-    const isTargetRomance = targetFamily.includes('romance');
+    const romanceLanguages = ['es', 'fr', 'it', 'pt', 'ca', 'ro'];
+    const isSourceRomance = romanceLanguages.includes(sourceLang);
+    const isTargetRomance = romanceLanguages.includes(targetLang);
 
     if (isSourceRomance && isTargetRomance) {
       // Remove common Romance endings to find root
@@ -951,9 +985,10 @@ class EtymologyService {
       }
     }
 
-    // Germanic language patterns - use comprehensive mapping
-    const isSourceGermanic = sourceFamily.includes('germanic');
-    const isTargetGermanic = targetFamily.includes('germanic');
+    // Germanic language patterns
+    const germanicLanguages = ['en', 'de', 'nl', 'da', 'sv', 'no'];
+    const isSourceGermanic = germanicLanguages.includes(sourceLang);
+    const isTargetGermanic = germanicLanguages.includes(targetLang);
 
     if (isSourceGermanic && isTargetGermanic) {
       // Remove Germanic endings
