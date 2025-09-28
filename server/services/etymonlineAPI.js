@@ -42,6 +42,8 @@ class EtymonlineAPI {
       }
 
       const html = await response.text();
+      console.log(`[DEBUG] Received HTML length: ${html.length} characters for word: "${word}"`);
+      console.log(`[DEBUG] HTML contains prose sections: ${html.includes('prose-lg')}`);
       const etymologyData = this.parseEtymologyHTML(html, word, language);
 
       // Update cross-reference database
@@ -225,6 +227,7 @@ class EtymonlineAPI {
               }
             };
 
+            console.log(`[DEBUG] Created connection with language: "${languageName}" -> "${languageCode}" for word "${etymologicalWord}"`);
             connections.push(connection);
             console.log(`Found fallback etymology: ${languageName} "${etymologicalWord}" -> "${sourceWord}"`);
           }
@@ -1046,9 +1049,12 @@ class EtymonlineAPI {
 
   // Extract language information from context around a word
   extractLanguageFromContext(contextBefore, word) {
+    console.log(`[DEBUG] Extracting language for word: "${word}", context: "${contextBefore.substring(Math.max(0, contextBefore.length - 100))}"`);
+
     // Special handling for PIE roots (asterisk prefix) - ALWAYS classify as PIE
     if (word.startsWith('*')) {
       // PIE roots are reconstructed forms, always classify as Proto-Indo-European
+      console.log(`[DEBUG] PIE root detected: "${word}" -> Proto-Indo-European (ine-pro)`);
       return { languageName: 'Proto-Indo-European', languageCode: 'ine-pro' };
     }
 
@@ -1069,14 +1075,19 @@ class EtymonlineAPI {
       const match = contextBefore.match(pattern);
       if (match && match[1]) {
         const detectedLanguage = match[1].trim();
+        console.log(`[DEBUG] Pattern matched: "${detectedLanguage}" from context`);
         if (this.isValidLanguageName(detectedLanguage)) {
           languageName = detectedLanguage;
           languageCode = this.mapLanguageNameToCode(languageName);
+          console.log(`[DEBUG] Valid language detected: "${languageName}" -> "${languageCode}"`);
           break;
+        } else {
+          console.log(`[DEBUG] Invalid language name rejected: "${detectedLanguage}"`);
         }
       }
     }
 
+    console.log(`[DEBUG] Final language result for "${word}": ${languageName} (${languageCode})`);
     return { languageName, languageCode };
   }
 

@@ -206,10 +206,16 @@ class EtymologyService {
     }
 
     try {
+      const rawLanguage = connection.word.language || connection.language || 'und';
+      console.log(`[DEBUG] Raw language before normalization: "${rawLanguage}" for word: "${connection.word.text || connection.word.word}"`);
+
+      const normalizedLanguage = this.normalizeLanguageCode(rawLanguage);
+      console.log(`[DEBUG] Language after normalization: "${rawLanguage}" -> "${normalizedLanguage}"`);
+
       const word: Word = {
         id: connection.word.id || this.generateId(),
         text: (connection.word.text || connection.word.word || '').toString().trim(),
-        language: this.normalizeLanguageCode(connection.word.language || connection.language || 'und'),
+        language: normalizedLanguage,
         definition: connection.word.definition || undefined,
         phonetic: connection.word.phonetic || undefined,
         partOfSpeech: connection.word.partOfSpeech || 'unknown'
