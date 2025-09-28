@@ -508,16 +508,17 @@ function LanguageMappingApp() {
       language: word.language,
       isExpanded: node.data.expanded,
       isSource: node.data.isSource,
+      isExpanding: node.data.expanding,
       mutationLoading: expandNodeMutation.isPending
     });
 
-
-    // Prevent expansion if mutation is already in progress
-    if (expandNodeMutation.isPending) {
-      console.log('Expansion already in progress, skipping click');
+    // Allow clicks even if a different mutation is in progress, but prevent multiple expansions of the same node
+    if (node.data.expanding) {
+      console.log('This specific node is already expanding, skipping click');
       showNotification(
-        `Please wait - expansion in progress...`,
-        'warning'
+        `"${word.text}" is already expanding, please wait...`,
+        'info',
+        2000
       );
       return;
     }

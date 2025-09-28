@@ -458,6 +458,7 @@ const LanguageGraph: React.FC<LanguageGraphProps> = ({ nodes, edges, onNodeClick
   const simulationRef = useRef<d3.Simulation<D3Node, D3Link> | null>(null);
   const containerRef = useRef<d3.Selection<SVGGElement, unknown, null, undefined> | null>(null);
   const timeoutRefs = useRef<number[]>([]); // Track all timeouts for cleanup
+  const clickTimeoutRef = useRef<Map<string, number>>(new Map()); // Track click debouncing per node
   const [dimensions, setDimensions] = useState({ width: 800, height: 500 });
   const [d3Data, setD3Data] = useState<{ nodes: D3Node[], links: D3Link[] }>({ nodes: [], links: [] });
 
@@ -878,12 +879,16 @@ const LanguageGraph: React.FC<LanguageGraphProps> = ({ nodes, edges, onNodeClick
 
     const allNodeGroups = newNodeGroups.merge(nodeGroups);
 
-    // Create drag behavior with better click/drag distinction
-    let isDragging = false;
+    // Create drag behavior with improved click/drag distinction
+    let dragStartTime = 0;
+    let dragDistance = 0;
+    let dragStartPosition = { x: 0, y: 0 };
 
     const drag = d3.drag<SVGGElement, D3Node>()
       .on('start', function(event, d) {
-        isDragging = false; // Reset at start
+        dragStartTime = Date.now();
+        dragDistance = 0;
+        dragStartPosition = { x: event.x, y: event.y };
 
         if (!event.active && simulationRef.current) {
           simulationRef.current.alphaTarget(0.1).restart();
@@ -892,21 +897,23 @@ const LanguageGraph: React.FC<LanguageGraphProps> = ({ nodes, edges, onNodeClick
         d.fy = d.y;
       })
       .on('drag', function(event, d) {
-        isDragging = true; // Mark as dragging once drag event fires
+        // Calculate drag distance to better distinguish drag from click
+        const deltaX = event.x - dragStartPosition.x;
+        const deltaY = event.y - dragStartPosition.y;
+        dragDistance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
 
         // Update position during drag
         d.fx = event.x;
         d.fy = event.y;
 
-        // No bounds constraint during drag - let user drag anywhere
-        // d.fx and d.fy are set by drag behavior automatically
-
-        // Visual feedback - find the main shape and enhance it
-        const nodeGroup = d3.select(this);
-        const mainShape = nodeGroup.select('rect, polygon, path, circle');
-        if (!mainShape.empty()) {
-          mainShape.attr('stroke-width',
-            parseFloat(mainShape.attr('stroke-width') || '2') + 2);
+        // Visual feedback only if we've moved a significant distance
+        if (dragDistance > 5) {
+          const nodeGroup = d3.select(this);
+          const mainShape = nodeGroup.select('rect, polygon, path, circle');
+          if (!mainShape.empty()) {
+            mainShape.attr('stroke-width',
+              parseFloat(mainShape.attr('stroke-width') || '2') + 2);
+          }
         }
       })
       .on('end', function(event, d) {
@@ -985,18 +992,30 @@ const LanguageGraph: React.FC<LanguageGraphProps> = ({ nodes, edges, onNodeClick
         }
       })
       .on('click', function(event, d) {
-        // Prevent click during drag or if default is prevented
-        if (event.defaultPrevented || isDragging) {
-          console.log('Click prevented - dragging:', isDragging, 'defaultPrevented:', event.defaultPrevented);
+        // Improved click detection with proper drag handling
+        const dragDuration = Date.now() - dragStartTime;
+        const wasDragged = dragDistance > 5 || dragDuration > 200; // More than 5px movement or 200ms duration
+
+        if (event.defaultPrevented || wasDragged) {
+          console.log('Click prevented - wasDragged:', wasDragged, 'distance:', dragDistance, 'duration:', dragDuration);
           return;
         }
 
         event.stopPropagation();
 
-        console.log('Node clicked:', d.word.text, 'expanded:', d.expanded, 'isSource:', d.isSource);
+        // Debounce rapid clicks per node
+        const now = Date.now();
+        const lastClickTime = clickTimeoutRef.current.get(d.id) || 0;
+        const timeSinceLastClick = now - lastClickTime;
 
-        // Always trigger onNodeClick - let App.tsx handle the expansion logic
-        // Don't check expanded state here as it might be stale
+        if (timeSinceLastClick < 300) { // 300ms debounce
+          console.log('Click debounced for node:', d.word.text, 'timeSince:', timeSinceLastClick);
+          return;
+        }
+
+        clickTimeoutRef.current.set(d.id, now);
+
+        console.log('Node clicked:', d.word.text, 'expanded:', d.expanded, 'isSource:', d.isSource);
 
         // Gentle click animation for all shape types
         const nodeGroup = d3.select(this);
@@ -1176,6 +1195,11 @@ const LanguageGraph: React.FC<LanguageGraphProps> = ({ nodes, edges, onNodeClick
       // Clear all timeouts
       timeoutRefs.current.forEach(timeout => clearTimeout(timeout));
       timeoutRefs.current = [];
+
+      // Clear click timeouts
+      if (clickTimeoutRef.current) {
+        clickTimeoutRef.current.clear();
+      }
 
       // Stop simulation
       if (simulationRef.current) {
