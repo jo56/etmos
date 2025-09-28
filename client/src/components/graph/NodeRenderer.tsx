@@ -5,8 +5,8 @@ import type { D3Node, Word } from '../../types';
 export const renderNodes = (
   containerRef: React.MutableRefObject<d3.Selection<SVGGElement, unknown, null, undefined> | null>,
   nodes: D3Node[],
-  theme: ThemeName,
-  currentTheme: any,
+  _theme: ThemeName,
+  _currentTheme: any,
   onNodeClick?: (word: Word) => void,
   onNodeHover?: (word: Word | null) => void,
   onMouseMove?: (event: MouseEvent) => void
