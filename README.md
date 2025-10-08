@@ -24,6 +24,8 @@ This will start:
 
 ### Controls
 
+**Click** on words to add related words to graph
+
 The settings menu can be accessed by clicking on the icon in the top left of the screen
 
 Press **Shift** to toggle settings menu visbility
