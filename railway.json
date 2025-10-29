@@ -5,6 +5,6 @@
     "buildCommand": "npm install && cd server && npm install && npm run build"
   },
   "deploy": {
-    "startCommand": "node server/dist/index.js"
+    "startCommand": "node server/dist/server/index.js"
   }
 }
