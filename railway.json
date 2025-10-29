@@ -4,6 +4,6 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "cd server && npm start"
+    "startCommand": "cd server && npm run start:prod"
   }
 }
