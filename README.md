@@ -1,5 +1,7 @@
 # etmos
 
+**[etmos.pages.dev](https://etmos.pages.dev)**
+
 A visual, interactive graph-based application for exploring etymological connections between words across different languages. Users can search for words and discover how they connect to related words in other languages through cognates, borrowings, derivatives, and other etymological relationships.
 
 ## Tech Stack
