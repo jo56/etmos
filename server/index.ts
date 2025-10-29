@@ -1,6 +1,7 @@
 import Fastify, { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import cors from '@fastify/cors';
 import formbody from '@fastify/formbody';
+import rateLimit from '@fastify/rate-limit';
 import NodeCache from 'node-cache';
 import {
   SearchQueryParams,
@@ -81,14 +82,60 @@ function selectConnectionsWithRandomization(connections: Connection[], maxCount:
 
 // Create Fastify instance
 const fastify: FastifyInstance = Fastify({
-  logger: true
+  logger: process.env.NODE_ENV === 'production' ? {
+    level: 'warn' // Less verbose logging in production
+  } : true,
+  trustProxy: true, // Important for Railway/behind proxies - enables proper IP detection for rate limiting
+  requestIdLogLabel: 'reqId',
+  disableRequestLogging: process.env.NODE_ENV === 'production', // Reduce log noise in prod
+  connectionTimeout: 30000, // 30 second connection timeout
+  keepAliveTimeout: 65000, // 65 seconds (must be > load balancer timeout)
+  requestTimeout: 25000 // 25 second request timeout to prevent hanging requests
 });
 
-// Register CORS plugin
-fastify.register(cors);
+// Register rate limiting - prevents API abuse
+fastify.register(rateLimit, {
+  max: 100, // 100 requests
+  timeWindow: '15 minutes', // per 15 minutes
+  errorResponseBuilder: () => ({
+    error: 'Too many requests',
+    message: 'Rate limit exceeded. Please try again later.'
+  })
+});
+
+// Register CORS plugin - restrict to frontend origin
+const allowedOrigins = process.env.FRONTEND_URL
+  ? [process.env.FRONTEND_URL]
+  : ['http://localhost:5173', 'http://localhost:3000']; // Development fallback
+
+fastify.register(cors, {
+  origin: allowedOrigins
+});
 
 // Register form body parser
 fastify.register(formbody);
+
+// Global error handler
+fastify.setErrorHandler((error, request, reply) => {
+  // Log error details for debugging
+  logger.error({
+    error: error.message,
+    stack: process.env.NODE_ENV !== 'production' ? error.stack : undefined,
+    url: request.url,
+    method: request.method
+  }, 'Request error');
+
+  // Don't leak error details in production
+  if (error.statusCode && error.statusCode < 500) {
+    reply.status(error.statusCode).send({
+      error: error.message
+    });
+  } else {
+    reply.status(500).send({
+      error: 'Internal server error'
+    });
+  }
+});
 
 // API Routes
 
@@ -341,8 +388,14 @@ fastify.get('/api/health', async (request: FastifyRequest, reply: FastifyReply) 
   });
 });
 
-// Debug cache endpoint
+// Debug cache endpoint - only available in development
 fastify.get('/api/debug/cache', async (request: FastifyRequest, reply: FastifyReply) => {
+  const isDevelopment = process.env.NODE_ENV !== 'production';
+
+  if (!isDevelopment) {
+    return reply.code(404).send({ error: 'Not found' });
+  }
+
   reply.send({
     graphCache: {
       keys: graphCache.keys().length,
@@ -356,6 +409,34 @@ fastify.get('/api/debug/cache', async (request: FastifyRequest, reply: FastifyRe
 });
 
 
+// Graceful shutdown handler
+const gracefulShutdown = async (signal: string) => {
+  logger.info(`${signal} received, starting graceful shutdown...`);
+
+  try {
+    await fastify.close();
+    logger.info('Server closed successfully');
+    process.exit(0);
+  } catch (err) {
+    logger.error({ error: err }, 'Error during graceful shutdown');
+    process.exit(1);
+  }
+};
+
+// Handle termination signals
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// Handle uncaught errors
+process.on('uncaughtException', (error) => {
+  logger.error({ error }, 'Uncaught exception');
+  gracefulShutdown('uncaughtException');
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error({ reason, promise }, 'Unhandled promise rejection');
+});
+
 // Start server
 const start = async (): Promise<void> => {
   try {
@@ -363,6 +444,7 @@ const start = async (): Promise<void> => {
     logger.info(`Dynamic Etymology Mapping server running on port ${port}`);
     logger.info('Using on-demand etymology lookup service');
     logger.info('Framework: Fastify with TypeScript');
+    logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);
