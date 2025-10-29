@@ -56,7 +56,7 @@ const WordDetailsPanel: React.FC<WordDetailsPanelProps> = ({
             <h2 className="text-xl font-bold text-gray-900">{word.text}</h2>
             <p className="text-sm text-gray-600">
               {languageNames[word.language] || word.language.toUpperCase()}
-              {word.partOfSpeech && ` • ${word.partOfSpeech}`}
+              {word.partOfSpeech && ` \u2022 ${word.partOfSpeech}`}
             </p>
           </div>
           <button

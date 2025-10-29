@@ -1,20 +1,56 @@
-const NodeCache = require('node-cache');
+import NodeCache from 'node-cache';
+import { logError } from '../utils/logger';
 
-// Cache for 2 hours to avoid repeated API calls
 const cache = new NodeCache({ stdTTL: 7200 });
 
+interface LanguageReference {
+  language: string;
+  word: string;
+}
+
+interface Word {
+  text: string;
+  language: string;
+  partOfSpeech: string;
+  definition: string;
+}
+
+interface Connection {
+  word: Word;
+  relationship: {
+    type: string;
+    confidence: number;
+    notes: string;
+  };
+}
+
+interface EtymologyData {
+  sourceWord: Word;
+  connections: Connection[];
+}
+
+interface WiktionaryParseResponse {
+  error?: unknown;
+  parse?: {
+    wikitext?: {
+      '*': string;
+    };
+  };
+}
+
 class WiktionaryAPI {
+  private baseURL: string;
+
   constructor() {
     this.baseURL = 'https://en.wiktionary.org/w/api.php';
   }
 
-  async fetchWiktionaryData(word, language = 'en') {
-    // TEMPORARILY DISABLE CACHE FOR DEVELOPMENT
-    // const cacheKey = `wiktionary_${word}_${language}`;
-    // let cached = cache.get(cacheKey);
-    // if (cached) {
-    //   return cached;
-    // }
+  async fetchWiktionaryData(word: string, language: string = 'en'): Promise<EtymologyData | null> {
+    const cacheKey = `wiktionary_${word}_${language}`;
+    const cached = cache.get<EtymologyData>(cacheKey);
+    if (cached) {
+      return cached;
+    }
 
     try {
       const params = new URLSearchParams({
@@ -25,9 +61,9 @@ class WiktionaryAPI {
       });
 
       const response = await fetch(`${this.baseURL}?${params}`);
-      const data = await response.json();
+      const data = await response.json() as WiktionaryParseResponse;
 
-      if (data.error) {
+      if (!response.ok || data.error) {
         return null;
       }
 
@@ -37,18 +73,20 @@ class WiktionaryAPI {
       }
 
       const etymologyData = this.parseEtymology(wikitext, word, language);
-      // TEMPORARILY DISABLE CACHE FOR DEVELOPMENT
-      // cache.set(cacheKey, etymologyData);
+      cache.set(cacheKey, etymologyData);
       return etymologyData;
 
     } catch (error) {
-      console.error(`Error fetching Wiktionary data for "${word}":`, error);
+      logError(`Error fetching Wiktionary data for "${word}"`, error, {
+        word,
+        language
+      });
       return null;
     }
   }
 
-  parseEtymology(wikitext, word, language) {
-    const result = {
+  private parseEtymology(wikitext: string, word: string, language: string): EtymologyData {
+    const result: EtymologyData = {
       sourceWord: {
         text: word,
         language: language,
@@ -59,12 +97,10 @@ class WiktionaryAPI {
     };
 
     try {
-      // Check if we have wikitext
       if (!wikitext || wikitext.length < 10) {
         return result;
       }
 
-      // More flexible etymology section extraction
       const etymologyPatterns = [
         /===Etymology===\s*\n(.*?)(?=\n===|\n==|\n\[\[Category|\n$)/s,
         /==Etymology==\s*\n(.*?)(?=\n===|\n==|\n\[\[Category|\n$)/s,
@@ -80,35 +116,23 @@ class WiktionaryAPI {
         }
       }
 
-      // If no dedicated etymology section, search the entire text for etymology templates
       if (!etymologyText) {
-        console.log(`No etymology section for "${word}", searching full text for templates`);
         etymologyText = wikitext;
       }
 
-      // Extract definition
       const definitionMatch = wikitext.match(/# (.+?)(?:\n|$)/);
       if (definitionMatch) {
         result.sourceWord.definition = definitionMatch[1].replace(/\[\[([^\]]+)\]\]/g, '$1');
       }
 
-      // Extract part of speech
       const posMatch = wikitext.match(/===(.+?)===\n.*?# /s);
       if (posMatch && posMatch[1] !== 'Etymology') {
         result.sourceWord.partOfSpeech = posMatch[1].toLowerCase();
       }
 
-      // Parse cognates and related words from the etymology text
       const cognateConnections = this.extractCognates(etymologyText, language);
       const derivativeConnections = this.extractDerivatives(wikitext, word, language);
       const compoundConnections = this.extractCompounds(wikitext, word, language);
-
-      console.log(`Etymology parsing for "${word}":`, {
-        cognates: cognateConnections.length,
-        derivatives: derivativeConnections.length,
-        compounds: compoundConnections.length,
-        hasEtymologySection: etymologyText !== wikitext
-      });
 
       result.connections = [
         ...cognateConnections,
@@ -117,18 +141,16 @@ class WiktionaryAPI {
       ];
 
     } catch (error) {
-      console.error('Error parsing etymology:', error);
+      logError('Error parsing etymology', error, { word, language });
     }
 
     return result;
   }
 
-  extractCognates(etymologyText, sourceLanguage) {
-    const connections = [];
+  private extractCognates(etymologyText: string, sourceLanguage: string): Connection[] {
+    const connections: Connection[] = [];
 
-    // Direct template extraction - look for all Wiktionary language templates
     const languageRefs = this.parseLanguageReferences(etymologyText);
-    console.log(`Found ${languageRefs.length} language references in etymology`);
 
     languageRefs.forEach(ref => {
       if (ref.language !== sourceLanguage && ref.word.length > 1) {
@@ -148,7 +170,6 @@ class WiktionaryAPI {
       }
     });
 
-    // Look for additional cognate patterns in text
     const cognatePatterns = [
       /cognate with (.+?)(?:\.|,|\n|$)/gi,
       /compare (.+?)(?:\.|,|\n|$)/gi,
@@ -159,15 +180,14 @@ class WiktionaryAPI {
     ];
 
     cognatePatterns.forEach(pattern => {
-      let match;
+      let match: RegExpExecArray | null;
       while ((match = pattern.exec(etymologyText)) !== null) {
-        const cognateText = match[1];
+        const currentMatch = match;
+        const cognateText = currentMatch[1];
 
-        // Extract individual cognates from this match
         const extraCognates = this.parseLanguageReferences(cognateText);
         extraCognates.forEach(cognate => {
           if (cognate.language !== sourceLanguage) {
-            // Check if we already have this word
             const exists = connections.some(conn =>
               conn.word.text === cognate.word && conn.word.language === cognate.language
             );
@@ -178,12 +198,12 @@ class WiktionaryAPI {
                   text: cognate.word,
                   language: cognate.language,
                   partOfSpeech: 'unknown',
-                  definition: `${this.getLanguageName(cognate.language)} cognate through ${match[0].split(' ')[0]}`
+                  definition: `${this.getLanguageName(cognate.language)} cognate through ${currentMatch[0].split(' ')[0]}`
                 },
                 relationship: {
                   type: 'cognate',
                   confidence: 0.85,
-                  notes: `Cognate relationship: ${match[0].split(' ')[0]}`
+                  notes: `Cognate relationship: ${currentMatch[0].split(' ')[0]}`
                 }
               });
             }
@@ -195,15 +215,13 @@ class WiktionaryAPI {
     return connections;
   }
 
-  extractDerivatives(wikitext, sourceWord, language) {
-    const connections = [];
+  private extractDerivatives(wikitext: string, sourceWord: string, language: string): Connection[] {
+    const connections: Connection[] = [];
 
-    // Look for derived terms section
     const derivedMatch = wikitext.match(/===Derived terms===\n(.*?)(?=\n===|\n==|\n\[\[Category|\n$)/s);
     if (derivedMatch) {
       const derivedText = derivedMatch[1];
 
-      // Extract words in double brackets
       const derivedTerms = derivedText.match(/\[\[([^\]]+)\]\]/g);
       if (derivedTerms) {
         derivedTerms.forEach(term => {
@@ -230,10 +248,9 @@ class WiktionaryAPI {
     return connections;
   }
 
-  extractCompounds(wikitext, sourceWord, language) {
-    const connections = [];
+  private extractCompounds(wikitext: string, sourceWord: string, language: string): Connection[] {
+    const connections: Connection[] = [];
 
-    // Look for compound words in derived terms
     const derivedMatch = wikitext.match(/===Derived terms===\n(.*?)(?=\n===|\n==|\n\[\[Category|\n$)/s);
     if (derivedMatch) {
       const derivedText = derivedMatch[1];
@@ -242,7 +259,6 @@ class WiktionaryAPI {
       if (compoundTerms) {
         compoundTerms.forEach(term => {
           const cleanTerm = term.replace(/\[\[|\]\]/g, '').split('|')[0];
-          // Check if it's a compound (contains source word + another word)
           if (cleanTerm.includes(sourceWord.toLowerCase()) && cleanTerm.length > sourceWord.length + 2) {
             connections.push({
               word: {
@@ -265,55 +281,42 @@ class WiktionaryAPI {
     return connections;
   }
 
-  parseLanguageReferences(text) {
-    const results = [];
+  private parseLanguageReferences(text: string): LanguageReference[] {
+    const results: LanguageReference[] = [];
 
-    // Enhanced patterns for ALL Wiktionary templates that reference other languages
     const languagePatterns = [
-      // Etymology templates
-      /\{\{cog\|([^|}]+)\|([^|}]+)[\|}]/g,        // {{cog|language|word}}
-      /\{\{cognate\|([^|}]+)\|([^|}]+)[\|}]/g,    // {{cognate|language|word}}
-      /\{\{der\|[^|}]+\|([^|}]+)\|([^|}]+)[\|}]/g, // {{der|target|source_lang|word}}
-      /\{\{inh\|[^|}]+\|([^|}]+)\|([^|}]+)[\|}]/g, // {{inh|target|source_lang|word}}
-      /\{\{bor\|[^|}]+\|([^|}]+)\|([^|}]+)[\|}]/g, // {{bor|target|source_lang|word}}
-      /\{\{cal\|[^|}]+\|([^|}]+)\|([^|}]+)[\|}]/g, // {{cal|target|source_lang|word}} (calque)
-      /\{\{lbor\|[^|}]+\|([^|}]+)\|([^|}]+)[\|}]/g, // {{lbor|target|source_lang|word}} (learned borrowing)
-
-      // Mention templates
-      /\{\{m\|([^|}]+)\|([^|}]+)[\|}]/g,          // {{m|language|word}}
-      /\{\{mention\|([^|}]+)\|([^|}]+)[\|}]/g,    // {{mention|language|word}}
-      /\{\{l\|([^|}]+)\|([^|}]+)[\|}]/g,          // {{l|language|word}}
-      /\{\{link\|([^|}]+)\|([^|}]+)[\|}]/g,       // {{link|language|word}}
-
-      // Term templates
-      /\{\{term\|([^|}]+)\|([^|}]+)[\|}]/g,       // {{term|language|word}}
-      /\{\{t\|([^|}]+)\|([^|}]+)[\|}]/g,          // {{t|language|word}}
-      /\{\{t\+\|([^|}]+)\|([^|}]+)[\|}]/g,        // {{t+|language|word}}
-
-      // Etymology-specific
-      /\{\{etyl\|([^|}]+)\|[^|}]*\|([^|}]+)[\|}]/g, // {{etyl|source_lang|target|word}}
-      /\{\{etyl\|([^|}]+)\}\}\s*\[\[([^\]]+)\]\]/g,  // {{etyl|lang}} [[word]]
-
-      // Prefix/affix templates that reference other languages
-      /\{\{af\|[^|}]+\|([^|}]+)\|([^|}]+)[\|}]/g,  // {{af|lang|prefix|word}}
-      /\{\{prefix\|[^|}]+\|([^|}]+)\|([^|}]+)[\|}]/g, // {{prefix|lang|prefix|word}}
-      /\{\{suffix\|[^|}]+\|([^|}]+)\|([^|}]+)[\|}]/g, // {{suffix|lang|word|suffix}}
-
-      // Compound templates
-      /\{\{compound\|[^|}]+\|([^|}]+)\|([^|}]+)[\|}]/g, // {{compound|lang|word1|word2}}
+      /\{\{cog\|([^|}]+)\|([^|}]+)[\|}]/g,
+      /\{\{cognate\|([^|}]+)\|([^|}]+)[\|}]/g,
+      /\{\{der\|[^|}]+\|([^|}]+)\|([^|}]+)[\|}]/g,
+      /\{\{inh\|[^|}]+\|([^|}]+)\|([^|}]+)[\|}]/g,
+      /\{\{bor\|[^|}]+\|([^|}]+)\|([^|}]+)[\|}]/g,
+      /\{\{cal\|[^|}]+\|([^|}]+)\|([^|}]+)[\|}]/g,
+      /\{\{lbor\|[^|}]+\|([^|}]+)\|([^|}]+)[\|}]/g,
+      /\{\{m\|([^|}]+)\|([^|}]+)[\|}]/g,
+      /\{\{mention\|([^|}]+)\|([^|}]+)[\|}]/g,
+      /\{\{l\|([^|}]+)\|([^|}]+)[\|}]/g,
+      /\{\{link\|([^|}]+)\|([^|}]+)[\|}]/g,
+      /\{\{term\|([^|}]+)\|([^|}]+)[\|}]/g,
+      /\{\{t\|([^|}]+)\|([^|}]+)[\|}]/g,
+      /\{\{t\+\|([^|}]+)\|([^|}]+)[\|}]/g,
+      /\{\{etyl\|([^|}]+)\|[^|}]*\|([^|}]+)[\|}]/g,
+      /\{\{etyl\|([^|}]+)\}\}\s*\[\[([^\]]+)\]\]/g,
+      /\{\{af\|[^|}]+\|([^|}]+)\|([^|}]+)[\|}]/g,
+      /\{\{prefix\|[^|}]+\|([^|}]+)\|([^|}]+)[\|}]/g,
+      /\{\{suffix\|[^|}]+\|([^|}]+)\|([^|}]+)[\|}]/g,
+      /\{\{compound\|[^|}]+\|([^|}]+)\|([^|}]+)[\|}]/g,
     ];
 
     languagePatterns.forEach(pattern => {
-      let match;
+      let match: RegExpExecArray | null;
       while ((match = pattern.exec(text)) !== null) {
         if (match.length >= 3) {
           const language = this.normalizeLanguageCode(match[1]);
           let word = match[2];
 
-          // Clean up the word
-          word = word.replace(/\|.*$/, '') // Remove extra parameters
-                     .replace(/\[\[([^\]]+)\]\]/g, '$1') // Remove wiki links
-                     .replace(/\{\{[^}]+\}\}/g, '') // Remove nested templates
+          word = word.replace(/\|.*$/, '')
+                     .replace(/\[\[([^\]]+)\]\]/g, '$1')
+                     .replace(/\{\{[^}]+\}\}/g, '')
                      .trim();
 
           if (language && word && word.length > 1 && !word.includes('{{') && !word.includes('}}')) {
@@ -323,9 +326,8 @@ class WiktionaryAPI {
       }
     });
 
-    // Also look for simple wiki-linked words with language indicators
     const wikiLinkPattern = /\[\[([^:\]]+):([^\]]+)\]\]/g;
-    let match;
+    let match: RegExpExecArray | null;
     while ((match = wikiLinkPattern.exec(text)) !== null) {
       const language = this.normalizeLanguageCode(match[1]);
       const word = match[2].split('|')[0].trim();
@@ -334,13 +336,11 @@ class WiktionaryAPI {
       }
     }
 
-    console.log(`Extracted ${results.length} language references from text`);
     return results;
   }
 
-  normalizeLanguageCode(code) {
-    const languageMap = {
-      // Modern languages
+  private normalizeLanguageCode(code: string): string {
+    const languageMap: { [key: string]: string } = {
       'de': 'de', 'ger': 'de', 'german': 'de',
       'fr': 'fr', 'fre': 'fr', 'french': 'fr',
       'es': 'es', 'spa': 'es', 'spanish': 'es',
@@ -367,73 +367,62 @@ class WiktionaryAPI {
       'zh': 'zh', 'chi': 'zh', 'chinese': 'zh',
       'ja': 'ja', 'jpn': 'ja', 'japanese': 'ja',
       'ko': 'ko', 'kor': 'ko', 'korean': 'ko',
-
-      // Historical languages and variants
-      'enm': 'enm', // Middle English
-      'ang': 'ang', // Old English
-      'fro': 'fro', // Old French
-      'frm': 'frm', // Middle French
-      'xno': 'xno', // Anglo-Norman
-      'gmh': 'gmh', // Middle High German
-      'goh': 'goh', // Old High German
-      'osx': 'osx', // Old Saxon
-      'odt': 'odt', // Old Dutch
-      'dum': 'dum', // Middle Dutch
-      'non': 'non', // Old Norse
-      'got': 'got', // Gothic
-      'sla-pro': 'sla-pro', // Proto-Slavic
-      'ine-pro': 'ine-pro', // Proto-Indo-European
-      'gem-pro': 'gem-pro', // Proto-Germanic
-      'gmw-pro': 'gmw-pro', // Proto-West-Germanic
-      'itc-pro': 'itc-pro', // Proto-Italic
-      'cel-pro': 'cel-pro', // Proto-Celtic
-      'gml': 'gml', // Middle Low German
-      'ml': 'ml', // Medieval Latin
-      'VL': 'la', // Vulgar Latin -> Latin
-      'LL': 'la', // Late Latin -> Latin
-
-      // Romance language variants
-      'roa-opt': 'pt', // Old Portuguese
-      'roa-oit': 'it', // Old Italian
-      'pro': 'pro', // Old Occitan
-      'ca': 'ca', 'cat': 'ca', // Catalan
-      'ro': 'ro', 'rum': 'ro', // Romanian
-      'gl': 'gl', 'glg': 'gl', // Galician
-
-      // Celtic languages
-      'ga': 'ga', 'gle': 'ga', // Irish
-      'gd': 'gd', 'gla': 'gd', // Scottish Gaelic
-      'cy': 'cy', 'wel': 'cy', // Welsh
-      'br': 'br', 'bre': 'br', // Breton
-      'kw': 'kw', 'cor': 'kw', // Cornish
-
-      // Slavic languages
-      'uk': 'uk', 'ukr': 'uk', // Ukrainian
-      'be': 'be', 'bel': 'be', // Belarusian
-      'bg': 'bg', 'bul': 'bg', // Bulgarian
-      'mk': 'mk', 'mac': 'mk', // Macedonian
-      'sr': 'sr', 'srp': 'sr', // Serbian
-      'hr': 'hr', 'hrv': 'hr', // Croatian
-      'bs': 'bs', 'bos': 'bs', // Bosnian
-      'sk': 'sk', 'slo': 'sk', // Slovak
-      'sl': 'sl', 'slv': 'sl', // Slovenian
-
-      // Others
-      'eu': 'eu', 'baq': 'eu', // Basque
-      'mt': 'mt', 'mlt': 'mt', // Maltese
-      'sq': 'sq', 'alb': 'sq', // Albanian
-      'lv': 'lv', 'lav': 'lv', // Latvian
-      'lt': 'lt', 'lit': 'lt', // Lithuanian
-      'et': 'et', 'est': 'et', // Estonian
+      'enm': 'enm',
+      'ang': 'ang',
+      'fro': 'fro',
+      'frm': 'frm',
+      'xno': 'xno',
+      'gmh': 'gmh',
+      'goh': 'goh',
+      'osx': 'osx',
+      'odt': 'odt',
+      'dum': 'dum',
+      'non': 'non',
+      'got': 'got',
+      'sla-pro': 'sla-pro',
+      'ine-pro': 'ine-pro',
+      'gem-pro': 'gem-pro',
+      'gmw-pro': 'gmw-pro',
+      'itc-pro': 'itc-pro',
+      'cel-pro': 'cel-pro',
+      'gml': 'gml',
+      'ml': 'ml',
+      'VL': 'la',
+      'LL': 'la',
+      'roa-opt': 'pt',
+      'roa-oit': 'it',
+      'pro': 'pro',
+      'ca': 'ca', 'cat': 'ca',
+      'ro': 'ro', 'rum': 'ro',
+      'gl': 'gl', 'glg': 'gl',
+      'ga': 'ga', 'gle': 'ga',
+      'gd': 'gd', 'gla': 'gd',
+      'cy': 'cy', 'wel': 'cy',
+      'br': 'br', 'bre': 'br',
+      'kw': 'kw', 'cor': 'kw',
+      'uk': 'uk', 'ukr': 'uk',
+      'be': 'be', 'bel': 'be',
+      'bg': 'bg', 'bul': 'bg',
+      'mk': 'mk', 'mac': 'mk',
+      'sr': 'sr', 'srp': 'sr',
+      'hr': 'hr', 'hrv': 'hr',
+      'bs': 'bs', 'bos': 'bs',
+      'sk': 'sk', 'slo': 'sk',
+      'sl': 'sl', 'slv': 'sl',
+      'eu': 'eu', 'baq': 'eu',
+      'mt': 'mt', 'mlt': 'mt',
+      'sq': 'sq', 'alb': 'sq',
+      'lv': 'lv', 'lav': 'lv',
+      'lt': 'lt', 'lit': 'lt',
+      'et': 'et', 'est': 'et',
     };
 
     const normalized = code.toLowerCase().trim();
     return languageMap[normalized] || normalized;
   }
 
-  getLanguageName(code) {
-    const names = {
-      // Modern languages
+  private getLanguageName(code: string): string {
+    const names: { [key: string]: string } = {
       'en': 'English',
       'es': 'Spanish',
       'fr': 'French',
@@ -462,8 +451,6 @@ class WiktionaryAPI {
       'zh': 'Chinese',
       'ja': 'Japanese',
       'ko': 'Korean',
-
-      // Historical and variant languages
       'enm': 'Middle English',
       'ang': 'Old English',
       'fro': 'Old French',
@@ -482,31 +469,23 @@ class WiktionaryAPI {
       'ML.': 'Medieval Latin',
       'VL': 'Vulgar Latin',
       'LL': 'Late Latin',
-
-      // Proto-languages
       'ine-pro': 'Proto-Indo-European',
       'gem-pro': 'Proto-Germanic',
       'gmw-pro': 'Proto-West-Germanic',
       'itc-pro': 'Proto-Italic',
       'cel-pro': 'Proto-Celtic',
       'sla-pro': 'Proto-Slavic',
-
-      // Romance languages
       'roa-opt': 'Old Portuguese',
       'roa-oit': 'Old Italian',
       'pro': 'Old Occitan',
       'ca': 'Catalan',
       'ro': 'Romanian',
       'gl': 'Galician',
-
-      // Celtic languages
       'ga': 'Irish',
       'gd': 'Scottish Gaelic',
       'cy': 'Welsh',
       'br': 'Breton',
       'kw': 'Cornish',
-
-      // Slavic languages
       'uk': 'Ukrainian',
       'be': 'Belarusian',
       'bg': 'Bulgarian',
@@ -516,8 +495,6 @@ class WiktionaryAPI {
       'bs': 'Bosnian',
       'sk': 'Slovak',
       'sl': 'Slovenian',
-
-      // Other languages
       'eu': 'Basque',
       'mt': 'Maltese',
       'sq': 'Albanian',
@@ -525,14 +502,12 @@ class WiktionaryAPI {
       'lt': 'Lithuanian',
       'et': 'Estonian',
       'gml': 'Middle Low German',
-
-      // Common abbreviations and variants
       'unknown': 'Unknown'
     };
 
-    const normalized = (code || '').toLowerCase().replace(/\.$/, ''); // Remove trailing period
+    const normalized = (code || '').toLowerCase().replace(/\.$/, '');
     return names[normalized] || names[code] || (code ? code.charAt(0).toUpperCase() + code.slice(1) : 'Unknown');
   }
 }
 
-module.exports = new WiktionaryAPI();
+export default new WiktionaryAPI();

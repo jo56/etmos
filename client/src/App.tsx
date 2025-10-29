@@ -137,11 +137,11 @@ function LanguageMappingApp() {
     const expandingWordKey = createWordKey(expandingNode.data.word.text, expandingNode.data.word.language);
 
     // Only check if any new neighbor is the exact same word as the expanding node
-    // This prevents true self-referential loops like test → test
+    // This prevents true self-referential loops like test -> test
     for (const neighbor of newNeighbors) {
       const neighborKey = createWordKey(neighbor.data.word.text, neighbor.data.word.language);
       if (neighborKey === expandingWordKey) {
-        logger.debug('Prevented self-referential loop:', expandingNode.data.word.text, '→', neighbor.data.word.text);
+        logger.debug('Prevented self-referential loop:', expandingNode.data.word.text, '->', neighbor.data.word.text);
         return true;
       }
     }

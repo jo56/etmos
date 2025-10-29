@@ -1,14 +1,42 @@
-const NodeCache = require('node-cache');
+import NodeCache from 'node-cache';
+import { logError } from '../utils/logger';
 
-// Cache dictionary responses for two hours to limit external calls.
 const cache = new NodeCache({ stdTTL: 7200 });
 
+interface Phonetic {
+  text?: string;
+  audio?: string;
+}
+
+interface Definition {
+  definition: string;
+  example?: string;
+  synonyms?: string[];
+  antonyms?: string[];
+}
+
+interface Meaning {
+  partOfSpeech: string;
+  definitions: Definition[];
+  synonyms?: string[];
+  antonyms?: string[];
+}
+
+interface DictionaryEntry {
+  word: string;
+  origin: string | null;
+  phonetics: Phonetic[];
+  meanings: Meaning[];
+}
+
 class DictionaryAPI {
+  private baseURL: string;
+
   constructor() {
     this.baseURL = 'https://api.dictionaryapi.dev/api/v2/entries';
   }
 
-  async fetchEntry(word, language = 'en') {
+  async fetchEntry(word: string, language: string = 'en'): Promise<DictionaryEntry | null> {
     const normalizedWord = (word || '').trim();
     if (!normalizedWord) {
       return null;
@@ -17,7 +45,7 @@ class DictionaryAPI {
     const normalizedLanguage = (language || 'en').toLowerCase();
     const cacheKey = `${normalizedLanguage}:${normalizedWord.toLowerCase()}`;
 
-    const cachedValue = cache.get(cacheKey);
+    const cachedValue = cache.get<DictionaryEntry | null>(cacheKey);
     if (cachedValue !== undefined) {
       return cachedValue;
     }
@@ -38,7 +66,7 @@ class DictionaryAPI {
       }
 
       const entry = payload[0];
-      const normalizedEntry = {
+      const normalizedEntry: DictionaryEntry = {
         word: entry.word || normalizedWord,
         origin: entry.origin || entry.etymology || null,
         phonetics: Array.isArray(entry.phonetics) ? entry.phonetics : [],
@@ -48,13 +76,16 @@ class DictionaryAPI {
       cache.set(cacheKey, normalizedEntry);
       return normalizedEntry;
     } catch (error) {
-      console.error(`Dictionary API request failed for "${normalizedWord}":`, error);
+      logError(`Dictionary API request failed for "${normalizedWord}"`, error, {
+        word: normalizedWord,
+        language
+      });
       cache.set(cacheKey, null, 300);
       return null;
     }
   }
 
-  extractPrimaryDefinition(entry) {
+  extractPrimaryDefinition(entry: DictionaryEntry | null): string | null {
     if (!entry || !Array.isArray(entry.meanings)) {
       return null;
     }
@@ -71,7 +102,7 @@ class DictionaryAPI {
     return null;
   }
 
-  extractPrimaryPartOfSpeech(entry) {
+  extractPrimaryPartOfSpeech(entry: DictionaryEntry | null): string | null {
     if (!entry || !Array.isArray(entry.meanings)) {
       return null;
     }
@@ -86,4 +117,4 @@ class DictionaryAPI {
   }
 }
 
-module.exports = new DictionaryAPI();
+export default new DictionaryAPI();

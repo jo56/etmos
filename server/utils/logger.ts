@@ -13,3 +13,8 @@ export const logger = pino({
     }
   } : undefined
 });
+
+export function logError(message: string, error: unknown, context: Record<string, unknown> = {}): void {
+  const err = error instanceof Error ? error : new Error(String(error));
+  logger.error({ ...context, err }, message);
+}

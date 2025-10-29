@@ -169,7 +169,7 @@ export const formatSharedRoot = (sharedRoot?: string): string | null => {
   if (!sharedRoot) return null;
 
   // Extract proto-form if present
-  const protoMatch = sharedRoot.match(/\*[a-zA-Z₀-₉ʰₑʷβɟḱĝʷʲʼ]+[-a-zA-Z₀-₉ʰₑʷβɟḱĝʷʲʼ]*/);
+  const protoMatch = sharedRoot.match(/\*[\p{L}\p{M}'-]+/u);
   if (protoMatch) {
     return protoMatch[0];
   }
@@ -217,5 +217,5 @@ export const formatEtymologyContext = (
     parts.push(cleanNotes);
   }
 
-  return parts.join(' • ');
+  return parts.join(' \u2022 ');
 };

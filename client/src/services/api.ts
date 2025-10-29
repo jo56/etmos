@@ -1,4 +1,5 @@
 import type { Word, SubgraphResponse, Language } from '../types';
+import { logger } from '../utils/logger';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:54330/api';
 
@@ -21,7 +22,7 @@ class ApiService {
 
       return await response.json();
     } catch (error) {
-      console.error(`API request failed for ${endpoint}:`, error);
+      logger.error(`API request failed for ${endpoint}:`, error);
       throw error;
     }
   }
@@ -72,7 +73,7 @@ class ApiService {
       });
     } catch (error) {
       // Fallback to existing search endpoint
-      console.log('New endpoint failed, using fallback...');
+      logger.warn('New endpoint failed, using fallback...');
       const searchResult = await this.searchEtymology(word, language);
 
       // Transform the existing format to the new format
@@ -117,7 +118,7 @@ class ApiService {
         }),
       });
     } catch (error) {
-      console.log('Neighbors endpoint failed:', error);
+      logger.warn('Neighbors endpoint failed:', error);
       return {
         neighbors: [],
         connections: [],

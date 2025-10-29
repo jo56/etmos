@@ -1,14 +1,50 @@
-const NodeCache = require('node-cache');
+import NodeCache from 'node-cache';
+import { logger } from '../utils/logger';
 
-// Cache cognate lookups for 4 hours
 const cache = new NodeCache({ stdTTL: 14400 });
 
+interface SoundChangeRule {
+  from: RegExp;
+  to: string;
+  example: string;
+  lang?: string;
+  family?: string;
+}
+
+interface SoundChangeRules {
+  [key: string]: SoundChangeRule[];
+}
+
+interface LanguageMap {
+  [languageCode: string]: string[];
+}
+
+interface Concept {
+  [conceptName: string]: LanguageMap;
+}
+
+interface CognateGroups {
+  [fieldName: string]: Concept;
+}
+
+interface Cognate {
+  word: string;
+  language: string;
+  confidence: number;
+  relationship: string;
+  semanticField?: string;
+  concept?: string;
+  soundChange?: string;
+  notes?: string;
+}
+
 class CognateService {
+  private soundChangeRules: SoundChangeRules;
+  private cognateGroups: CognateGroups;
+
   constructor() {
-    // Sound change patterns between language families
     this.soundChangeRules = {
-      // Germanic to Romance sound changes
-      'germanic_to_romance': [
+      germanic_to_romance: [
         { from: /^h([aeiou])/, to: '$1', example: 'haus → casa' },
         { from: /k([aeiou])/, to: 'c$1', example: 'kin → cognate' },
         { from: /w([aeiou])/, to: 'v$1', example: 'water → aqua' },
@@ -16,8 +52,7 @@ class CognateService {
         { from: /th/, to: 't', example: 'three → tres' }
       ],
 
-      // Romance language variations
-      'latin_variations': [
+      latin_variations: [
         { from: /ct/, to: 'tt', lang: 'it', example: 'factum → fatto' },
         { from: /ct/, to: 'ch', lang: 'es', example: 'factum → hecho' },
         { from: /ct/, to: 'it', lang: 'fr', example: 'factum → fait' },
@@ -25,159 +60,158 @@ class CognateService {
         { from: /^f/, to: 'h', lang: 'es', example: 'farina → harina' }
       ],
 
-      // Indo-European root connections
-      'indo_european': [
+      indo_european: [
         { from: /^p/, to: 'f', family: 'germanic', example: 'pater → father' },
         { from: /^d/, to: 't', family: 'germanic', example: 'decem → ten' },
         { from: /^g/, to: 'k', family: 'germanic', example: 'genus → kin' }
       ]
     };
 
-    // Known cognate groups organized by semantic fields
     this.cognateGroups = {
-      'family_relations': {
-        'mother': {
-          'en': ['mother'],
-          'de': ['mutter'],
-          'es': ['madre'],
-          'fr': ['mère'],
-          'it': ['madre'],
-          'la': ['mater'],
-          'ru': ['мать'],
-          'gr': ['μητέρα']
+      family_relations: {
+        mother: {
+          en: ['mother'],
+          de: ['mutter'],
+          es: ['madre'],
+          fr: ['mère'],
+          it: ['madre'],
+          la: ['mater'],
+          ru: ['мать'],
+          gr: ['μητέρα']
         },
-        'father': {
-          'en': ['father'],
-          'de': ['vater'],
-          'es': ['padre'],
-          'fr': ['père'],
-          'it': ['padre'],
-          'la': ['pater'],
-          'ru': ['отец'],
-          'gr': ['πατέρας']
+        father: {
+          en: ['father'],
+          de: ['vater'],
+          es: ['padre'],
+          fr: ['père'],
+          it: ['padre'],
+          la: ['pater'],
+          ru: ['отец'],
+          gr: ['πατέρας']
         },
-        'brother': {
-          'en': ['brother'],
-          'de': ['bruder'],
-          'es': ['hermano'],
-          'fr': ['frère'],
-          'it': ['fratello'],
-          'la': ['frater'],
-          'ru': ['брат'],
-          'gr': ['αδελφός']
+        brother: {
+          en: ['brother'],
+          de: ['bruder'],
+          es: ['hermano'],
+          fr: ['frère'],
+          it: ['fratello'],
+          la: ['frater'],
+          ru: ['брат'],
+          gr: ['αδελφός']
         }
       },
 
-      'numbers': {
-        'one': {
-          'en': ['one'],
-          'de': ['ein', 'eins'],
-          'es': ['uno'],
-          'fr': ['un'],
-          'it': ['uno'],
-          'la': ['unus'],
-          'ru': ['один'],
-          'gr': ['ένα']
+      numbers: {
+        one: {
+          en: ['one'],
+          de: ['ein', 'eins'],
+          es: ['uno'],
+          fr: ['un'],
+          it: ['uno'],
+          la: ['unus'],
+          ru: ['один'],
+          gr: ['ένα']
         },
-        'two': {
-          'en': ['two'],
-          'de': ['zwei'],
-          'es': ['dos'],
-          'fr': ['deux'],
-          'it': ['due'],
-          'la': ['duo'],
-          'ru': ['два'],
-          'gr': ['δύο']
+        two: {
+          en: ['two'],
+          de: ['zwei'],
+          es: ['dos'],
+          fr: ['deux'],
+          it: ['due'],
+          la: ['duo'],
+          ru: ['два'],
+          gr: ['δύο']
         },
-        'three': {
-          'en': ['three'],
-          'de': ['drei'],
-          'es': ['tres'],
-          'fr': ['trois'],
-          'it': ['tre'],
-          'la': ['tres'],
-          'ru': ['три'],
-          'gr': ['τρία']
+        three: {
+          en: ['three'],
+          de: ['drei'],
+          es: ['tres'],
+          fr: ['trois'],
+          it: ['tre'],
+          la: ['tres'],
+          ru: ['три'],
+          gr: ['τρία']
         }
       },
 
-      'body_parts': {
-        'heart': {
-          'en': ['heart'],
-          'de': ['herz'],
-          'es': ['corazón'],
-          'fr': ['cœur'],
-          'it': ['cuore'],
-          'la': ['cor'],
-          'ru': ['сердце'],
-          'gr': ['καρδιά']
+      body_parts: {
+        heart: {
+          en: ['heart'],
+          de: ['herz'],
+          es: ['corazón'],
+          fr: ['cœur'],
+          it: ['cuore'],
+          la: ['cor'],
+          ru: ['сердце'],
+          gr: ['καρδιά']
         },
-        'head': {
-          'en': ['head'],
-          'de': ['kopf', 'haupt'],
-          'es': ['cabeza'],
-          'fr': ['tête'],
-          'it': ['testa'],
-          'la': ['caput'],
-          'ru': ['голова'],
-          'gr': ['κεφάλι']
+        head: {
+          en: ['head'],
+          de: ['kopf', 'haupt'],
+          es: ['cabeza'],
+          fr: ['tête'],
+          it: ['testa'],
+          la: ['caput'],
+          ru: ['голова'],
+          gr: ['κεφάλι']
         }
       },
 
-      'basic_concepts': {
-        'water': {
-          'en': ['water'],
-          'de': ['wasser'],
-          'es': ['agua'],
-          'fr': ['eau'],
-          'it': ['acqua'],
-          'la': ['aqua'],
-          'ru': ['вода'],
-          'gr': ['νερό']
+      basic_concepts: {
+        water: {
+          en: ['water'],
+          de: ['wasser'],
+          es: ['agua'],
+          fr: ['eau'],
+          it: ['acqua'],
+          la: ['aqua'],
+          ru: ['вода'],
+          gr: ['νερό']
         },
-        'fire': {
-          'en': ['fire'],
-          'de': ['feuer'],
-          'es': ['fuego'],
-          'fr': ['feu'],
-          'it': ['fuoco'],
-          'la': ['ignis'],
-          'ru': ['огонь'],
-          'gr': ['φωτιά']
+        fire: {
+          en: ['fire'],
+          de: ['feuer'],
+          es: ['fuego'],
+          fr: ['feu'],
+          it: ['fuoco'],
+          la: ['ignis'],
+          ru: ['огонь'],
+          gr: ['φωτιά']
         },
-        'house': {
-          'en': ['house'],
-          'de': ['haus'],
-          'es': ['casa'],
-          'fr': ['maison'],
-          'it': ['casa'],
-          'la': ['domus'],
-          'ru': ['дом'],
-          'gr': ['σπίτι']
+        house: {
+          en: ['house'],
+          de: ['haus'],
+          es: ['casa'],
+          fr: ['maison'],
+          it: ['casa'],
+          la: ['domus'],
+          ru: ['дом'],
+          gr: ['σπίτι']
         }
       }
     };
   }
 
-  async findCognates(word, sourceLanguage, targetLanguages = ['en', 'es', 'fr', 'de', 'it']) {
+  async findCognates(
+    word: string,
+    sourceLanguage: string,
+    targetLanguages: string[] = ['en', 'es', 'fr', 'de', 'it']
+  ): Promise<Cognate[]> {
     const cacheKey = `cognates_${word}_${sourceLanguage}_${targetLanguages.join('_')}`;
-    const cached = cache.get(cacheKey);
+    const cached = cache.get<Cognate[]>(cacheKey);
     if (cached) {
       return cached;
     }
 
-    const cognates = [];
+    const cognates: Cognate[] = [];
     const normalizedWord = word.toLowerCase().trim();
 
-    // Look for direct cognates in our database
     const directCognates = this.findDirectCognates(normalizedWord, sourceLanguage, targetLanguages);
     cognates.push(...directCognates);
 
-    // Apply sound change rules to find potential cognates
     const soundChangeCognates = this.applySoundChangeRules(normalizedWord, sourceLanguage, targetLanguages);
     cognates.push(...soundChangeCognates);
 
-    // Deduplicate and sort by confidence
     const uniqueCognates = this.deduplicateCognates(cognates);
     const sortedCognates = uniqueCognates.sort((a, b) => b.confidence - a.confidence);
 
@@ -185,23 +219,18 @@ class CognateService {
     return sortedCognates;
   }
 
-  findDirectCognates(word, sourceLanguage, targetLanguages) {
-    const cognates = [];
+  private findDirectCognates(word: string, sourceLanguage: string, targetLanguages: string[]): Cognate[] {
+    const cognates: Cognate[] = [];
 
-    // Search through all semantic fields
     for (const [fieldName, concepts] of Object.entries(this.cognateGroups)) {
       for (const [conceptName, languageMap] of Object.entries(concepts)) {
-
-        // Check if the word exists in the source language for this concept
         const sourceWords = languageMap[sourceLanguage] || [];
         const wordMatches = sourceWords.some(w => w.toLowerCase() === word.toLowerCase());
 
         if (wordMatches) {
-          // Find cognates in target languages
           for (const targetLang of targetLanguages) {
             if (targetLang !== sourceLanguage && languageMap[targetLang]) {
               for (const cognateWord of languageMap[targetLang]) {
-                // Filter out derivatives before adding cognates
                 if (!this.isDerivative(word, cognateWord, sourceLanguage, targetLang)) {
                   cognates.push({
                     word: cognateWord,
@@ -223,8 +252,8 @@ class CognateService {
     return cognates;
   }
 
-  applySoundChangeRules(word, sourceLanguage, targetLanguages) {
-    const cognates = [];
+  private applySoundChangeRules(word: string, sourceLanguage: string, targetLanguages: string[]): Cognate[] {
+    const cognates: Cognate[] = [];
     const languageFamilies = this.getLanguageFamily(sourceLanguage);
 
     for (const targetLang of targetLanguages) {
@@ -232,7 +261,6 @@ class CognateService {
 
       const targetFamilies = this.getLanguageFamily(targetLang);
 
-      // Apply appropriate sound change rules
       for (const family of languageFamilies) {
         for (const targetFamily of targetFamilies) {
           const ruleKey = `${family}_to_${targetFamily}`;
@@ -262,40 +290,40 @@ class CognateService {
     return cognates;
   }
 
-  getLanguageFamily(languageCode) {
-    const families = {
-      'en': ['germanic', 'indo_european'],
-      'de': ['germanic', 'indo_european'],
-      'nl': ['germanic', 'indo_european'],
-      'da': ['germanic', 'indo_european'],
-      'sv': ['germanic', 'indo_european'],
-      'no': ['germanic', 'indo_european'],
+  private getLanguageFamily(languageCode: string): string[] {
+    const families: { [key: string]: string[] } = {
+      en: ['germanic', 'indo_european'],
+      de: ['germanic', 'indo_european'],
+      nl: ['germanic', 'indo_european'],
+      da: ['germanic', 'indo_european'],
+      sv: ['germanic', 'indo_european'],
+      no: ['germanic', 'indo_european'],
 
-      'es': ['romance', 'indo_european'],
-      'fr': ['romance', 'indo_european'],
-      'it': ['romance', 'indo_european'],
-      'pt': ['romance', 'indo_european'],
-      'ro': ['romance', 'indo_european'],
-      'ca': ['romance', 'indo_european'],
+      es: ['romance', 'indo_european'],
+      fr: ['romance', 'indo_european'],
+      it: ['romance', 'indo_european'],
+      pt: ['romance', 'indo_european'],
+      ro: ['romance', 'indo_european'],
+      ca: ['romance', 'indo_european'],
 
-      'la': ['latin', 'indo_european'],
-      'gr': ['hellenic', 'indo_european'],
-      'ru': ['slavic', 'indo_european'],
-      'pl': ['slavic', 'indo_european'],
-      'cs': ['slavic', 'indo_european'],
+      la: ['latin', 'indo_european'],
+      gr: ['hellenic', 'indo_european'],
+      ru: ['slavic', 'indo_european'],
+      pl: ['slavic', 'indo_european'],
+      cs: ['slavic', 'indo_european'],
 
-      'ar': ['semitic'],
-      'he': ['semitic'],
-      'hi': ['indo_aryan', 'indo_european'],
-      'sa': ['indo_aryan', 'indo_european']
+      ar: ['semitic'],
+      he: ['semitic'],
+      hi: ['indo_aryan', 'indo_european'],
+      sa: ['indo_aryan', 'indo_european']
     };
 
     return families[languageCode] || ['unknown'];
   }
 
-  deduplicateCognates(cognates) {
-    const seen = new Map();
-    const unique = [];
+  private deduplicateCognates(cognates: Cognate[]): Cognate[] {
+    const seen = new Map<string, Cognate>();
+    const unique: Cognate[] = [];
 
     for (const cognate of cognates) {
       const key = `${cognate.word.toLowerCase()}_${cognate.language}`;
@@ -304,9 +332,8 @@ class CognateService {
         seen.set(key, cognate);
         unique.push(cognate);
       } else {
-        // Keep the one with higher confidence
         const existing = seen.get(key);
-        if (cognate.confidence > existing.confidence) {
+        if (existing && cognate.confidence > existing.confidence) {
           const index = unique.indexOf(existing);
           if (index >= 0) {
             unique[index] = cognate;
@@ -319,46 +346,41 @@ class CognateService {
     return unique;
   }
 
-  // Get language name for display
-  getLanguageName(code) {
-    const names = {
-      'en': 'English',
-      'es': 'Spanish',
-      'fr': 'French',
-      'de': 'German',
-      'it': 'Italian',
-      'pt': 'Portuguese',
-      'nl': 'Dutch',
-      'la': 'Latin',
-      'gr': 'Greek',
-      'ru': 'Russian',
-      'pl': 'Polish',
-      'cs': 'Czech',
-      'ar': 'Arabic',
-      'he': 'Hebrew',
-      'hi': 'Hindi',
-      'sa': 'Sanskrit'
+  getLanguageName(code: string): string {
+    const names: { [key: string]: string } = {
+      en: 'English',
+      es: 'Spanish',
+      fr: 'French',
+      de: 'German',
+      it: 'Italian',
+      pt: 'Portuguese',
+      nl: 'Dutch',
+      la: 'Latin',
+      gr: 'Greek',
+      ru: 'Russian',
+      pl: 'Polish',
+      cs: 'Czech',
+      ar: 'Arabic',
+      he: 'Hebrew',
+      hi: 'Hindi',
+      sa: 'Sanskrit'
     };
 
     return names[code] || code.toUpperCase();
   }
 
-  // Check if one word is a derivative of another (same logic as EtymologyService)
-  isDerivative(sourceText, targetText, sourceLang, targetLang) {
+  private isDerivative(sourceText: string, targetText: string, sourceLang: string, targetLang: string): boolean {
     const source = sourceText.toLowerCase().trim();
     const target = targetText.toLowerCase().trim();
 
-    // Skip if words are identical
     if (source === target) {
       return true;
     }
 
-    // For cross-language connections, check if one is clearly a derivative of the other
     if (sourceLang !== targetLang) {
       return this.isCrossLanguageDerivative(source, target, sourceLang, targetLang);
     }
 
-    // All derivational suffixes that should be filtered as derivatives
     const derivationalSuffixes = [
       'ing', 'ed', 's', 'es', 'ies', 'er', 'est', 'ly', 'ie', 'y',
       'ness', 'ment', 'tion', 'sion', 'ful', 'less', 'able', 'ible',
@@ -367,18 +389,15 @@ class CognateService {
       'al', 'ic', 'ous', 'eous', 'ious', 'ary', 'ery', 'ory', 'ure', 'ade'
     ];
 
-    // Derivational prefixes that should be filtered
     const derivationalPrefixes = [
       're', 'un', 'pre', 'dis', 'mis', 'over', 'under', 'out', 'up', 'in', 'im', 'il', 'ir',
       'non', 'anti', 'de', 'ex', 'sub', 'super', 'inter', 'trans', 'semi', 'multi', 'co'
     ];
 
-    // Check if target is source + any derivational suffix
     for (const suffix of derivationalSuffixes) {
       if (target === source + suffix) {
         return true;
       }
-      // Handle spelling changes
       if (suffix === 'ies' && source.endsWith('y') && target === source.slice(0, -1) + 'ies') {
         return true;
       }
@@ -390,7 +409,6 @@ class CognateService {
       }
     }
 
-    // Check if source is target + any derivational suffix (reverse)
     for (const suffix of derivationalSuffixes) {
       if (source === target + suffix) {
         return true;
@@ -406,7 +424,6 @@ class CognateService {
       }
     }
 
-    // Check derivational prefixes
     for (const prefix of derivationalPrefixes) {
       if (target === prefix + source || source === prefix + target) {
         return true;
@@ -416,15 +433,12 @@ class CognateService {
     return false;
   }
 
-  // Check if words are cross-language derivatives (e.g., English "nation" vs Spanish "nación")
-  isCrossLanguageDerivative(source, target, sourceLang, targetLang) {
-    // Romance language patterns - similar roots with language-specific endings
+  private isCrossLanguageDerivative(source: string, target: string, sourceLang: string, targetLang: string): boolean {
     const romanceLanguages = ['es', 'fr', 'it', 'pt', 'ca', 'ro'];
     const isSourceRomance = romanceLanguages.includes(sourceLang);
     const isTargetRomance = romanceLanguages.includes(targetLang);
 
     if (isSourceRomance && isTargetRomance) {
-      // Remove common Romance endings to find root
       const sourceRoot = this.getRomanceRoot(source);
       const targetRoot = this.getRomanceRoot(target);
 
@@ -433,9 +447,7 @@ class CognateService {
       }
     }
 
-    // English/Germanic to Romance patterns
     if ((sourceLang === 'en' || sourceLang === 'de') && isTargetRomance) {
-      // Common Latin-derived patterns
       const patterns = [
         { en: /tion$/, romance: /ción$|tion$|zione$/ },
         { en: /sion$/, romance: /sión$|sion$|sione$/ },
@@ -456,13 +468,11 @@ class CognateService {
       }
     }
 
-    // Germanic language patterns
     const germanicLanguages = ['en', 'de', 'nl', 'da', 'sv', 'no'];
     const isSourceGermanic = germanicLanguages.includes(sourceLang);
     const isTargetGermanic = germanicLanguages.includes(targetLang);
 
     if (isSourceGermanic && isTargetGermanic) {
-      // Remove Germanic endings
       const sourceRoot = this.getGermanicRoot(source);
       const targetRoot = this.getGermanicRoot(target);
 
@@ -474,8 +484,7 @@ class CognateService {
     return false;
   }
 
-  getRomanceRoot(word) {
-    // Remove common Romance language endings
+  private getRomanceRoot(word: string): string {
     const endings = [
       'ción', 'sión', 'tion', 'sion', 'zione', 'sione', 'ção', 'são',
       'idad', 'ité', 'ità', 'idade', 'tate', 'dad',
@@ -492,8 +501,7 @@ class CognateService {
     return word;
   }
 
-  getGermanicRoot(word) {
-    // Remove common Germanic endings
+  private getGermanicRoot(word: string): string {
     const endings = [
       'ing', 'ed', 'er', 'est', 'ly', 'ness', 'ment',
       'en', 'an', 'ung', 'heit', 'keit', 'lich', 'isch'
@@ -507,12 +515,10 @@ class CognateService {
     return word;
   }
 
-  areRootsRelated(root1, root2) {
-    // Simple similarity check for roots
+  private areRootsRelated(root1: string, root2: string): boolean {
     if (root1 === root2) return true;
     if (Math.abs(root1.length - root2.length) > 2) return false;
 
-    // Check for similar roots with minor spelling differences
     const maxDiff = Math.floor(Math.min(root1.length, root2.length) / 3);
     let differences = 0;
 
@@ -527,4 +533,4 @@ class CognateService {
   }
 }
 
-module.exports = new CognateService();
+export default new CognateService();

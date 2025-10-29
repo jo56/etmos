@@ -5,10 +5,10 @@ import { normalizeLanguageCode, getLanguageName } from '../constants/languages';
 import { ETYMOLOGY_SERVICE_CACHE_CONFIG } from '../config/cache';
 import { logger } from '../utils/logger';
 
-const wiktionaryAPI = require('./wiktionaryAPI');
-const dictionaryAPI = require('./dictionaryAPI');
-const etymonlineAPI = require('./etymonlineAPI');
-const cognateService = require('./cognateService');
+import wiktionaryAPI from './wiktionaryAPI';
+import dictionaryAPI from './dictionaryAPI';
+import etymonlineAPI from './etymonlineAPI';
+import cognateService from './cognateService';
 
 const cache = new NodeCache(ETYMOLOGY_SERVICE_CACHE_CONFIG);
 
@@ -68,11 +68,11 @@ class EtymologyService {
       logger.warn(`Etymonline lookup failed for "${normalizedWord}":`, etymonlineResult.reason);
     }
 
-    const wiktionaryData: WiktionaryData | null = wiktionaryResult.status === 'fulfilled' ? wiktionaryResult.value : null;
-    const dictionaryData: DictionaryApiData | null = dictionaryResult.status === 'fulfilled' ? dictionaryResult.value : null;
-    const etymonlineData: EtymonlineData | null = etymonlineResult.status === 'fulfilled' ? etymonlineResult.value : null;
+    const wiktionaryData = wiktionaryResult.status === 'fulfilled' ? wiktionaryResult.value : null;
+    const dictionaryData = dictionaryResult.status === 'fulfilled' ? dictionaryResult.value : null;
+    const etymonlineData = etymonlineResult.status === 'fulfilled' ? etymonlineResult.value : null;
 
-    const sourceWord = this.buildSourceWord(normalizedWord, normalizedLanguage, wiktionaryData, dictionaryData);
+    const sourceWord = this.buildSourceWord(normalizedWord, normalizedLanguage, wiktionaryData as any, dictionaryData as any);
 
     const connections: NormalizedConnection[] = [];
 
