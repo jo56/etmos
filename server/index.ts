@@ -662,14 +662,6 @@ fastify.get('/api/test-shared-root', async (request: FastifyRequest, reply: Fast
   }
 });
 
-// Clear cache endpoint (commented out in production)
-/*
-fastify.post('/api/cache/clear', async (request: FastifyRequest, reply: FastifyReply) => {
-  // graphCache.flushAll(); // Disabled for development
-  reply.send({ message: 'Cache cleared successfully', timestamp: new Date().toISOString() });
-});
-*/
-
 // Start server
 const start = async (): Promise<void> => {
   try {
