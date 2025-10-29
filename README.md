@@ -2,11 +2,27 @@
 
 A visual, interactive graph-based application for exploring etymological connections between words across different languages. Users can search for words and discover how they connect to related words in other languages through cognates, borrowings, derivatives, and other etymological relationships.
 
+## Tech Stack
+
+**Frontend:**
+- React 19 with TypeScript
+- D3.js for graph visualization
+- TanStack Query for data fetching
+- Vite for build tooling
+- Tailwind CSS for styling
+
+**Backend:**
+- Fastify server with TypeScript
+- Node-cache for response caching
+- Deployed on Railway
+
 ## Getting Started
+
+### Installation
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/your-username/etmos.git
+git clone https://github.com/jo56/etmos.git
 cd etmos
 ```
 
@@ -15,26 +31,26 @@ cd etmos
 npm run install:all
 ```
 
-## Development
+### Development
 
-Start the development servers (with hot-reload):
+Start both frontend and backend development servers:
 ```bash
 npm run dev
 ```
 
 This will start:
-- Backend server on `http://localhost:54330`
+- Backend API server on `http://localhost:54330`
 - Frontend application on `http://localhost:5173`
 
-Both the client and server will automatically reload when you make changes to the code.
+Both will automatically reload when you make changes to the code.
 
 ### Running Client or Server Individually
 
 ```bash
-# Run only the client in development mode
+# Run only the frontend in development mode
 npm run client:dev
 
-# Run only the server in development mode
+# Run only the backend in development mode
 npm run server:dev
 ```
 
@@ -42,7 +58,7 @@ npm run server:dev
 
 ### Building for Production
 
-Build both client and server:
+Build both frontend and backend:
 ```bash
 # Build the client (creates optimized bundle in client/dist)
 npm run client:build
@@ -53,30 +69,46 @@ npm run server:build
 
 ### Running Production Builds
 
-**Option 1: Run production server**
+Start the production server:
 ```bash
 npm run server:start:prod
 ```
 
-**Option 2: Preview production build locally**
+Preview the frontend production build locally:
 ```bash
-# Build and preview the client
 cd client
 npm run build
-npm run preview  # Serves production build on http://localhost:4173
-
-# In another terminal, run the production server
-cd server
-npm run start:prod
+npm run preview  # Serves on http://localhost:4173
 ```
 
 ## Usage
 
-### Controls
+1. **Search**: Enter a word in the search bar to create an initial graph
+2. **Expand**: Click on any node to reveal its etymological connections
+3. **Settings**: Click the settings icon (top-left) or press `Shift` to toggle the settings panel
+4. **Themes**: Choose from 12 different visual themes in the settings panel
+5. **Max Neighbors**: Adjust the maximum number of connections shown per node (1-50)
 
-**Click** on words to add related words to graph
+## API Endpoints
 
-The settings menu can be accessed by clicking on the icon in the top left of the screen
+The backend provides the following endpoints:
 
-Press **Shift** to toggle settings menu visbility
+- `GET /api/etymology/search?word={word}&language={lang}` - Search for a word's etymology
+- `POST /api/etymology/initial` - Get initial graph data for a word
+- `POST /api/etymology/neighbors` - Get neighbors for a specific node
+- `GET /api/health` - Health check endpoint
+
+## Environment Variables
+
+Create a `.env` file in the server directory:
+
+```env
+PORT=54330
+FRONTEND_URL=http://localhost:5173
+NODE_ENV=development
+```
+
+## License
+
+MIT
 
