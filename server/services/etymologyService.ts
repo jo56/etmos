@@ -1,13 +1,16 @@
 import { randomUUID } from 'crypto';
 import NodeCache from 'node-cache';
 import { Word, Connection, EtymologyData, WiktionaryData, DictionaryApiData, EtymonlineData } from '../types';
+import { normalizeLanguageCode, getLanguageName } from '../constants/languages';
+import { ETYMOLOGY_SERVICE_CACHE_CONFIG } from '../config/cache';
+import { logger } from '../utils/logger';
 
 const wiktionaryAPI = require('./wiktionaryAPI');
 const dictionaryAPI = require('./dictionaryAPI');
 const etymonlineAPI = require('./etymonlineAPI');
 const cognateService = require('./cognateService');
 
-const cache = new NodeCache({ stdTTL: 3600 });
+const cache = new NodeCache(ETYMOLOGY_SERVICE_CACHE_CONFIG);
 
 interface NormalizedConnection {
   word: Word;
@@ -44,7 +47,7 @@ class EtymologyService {
     if (!bypassCache) {
       const cached = cache.get<EtymologyData>(cacheKey);
       if (cached) {
-        console.log(`Using cached etymology data for "${normalizedWord}"`);
+        logger.debug(`Using cached etymology data for "${normalizedWord}"`);
         return cached;
       }
     }
@@ -56,13 +59,13 @@ class EtymologyService {
     ]);
 
     if (wiktionaryResult.status === 'rejected') {
-      console.error(`Wiktionary lookup failed for "${normalizedWord}":`, wiktionaryResult.reason);
+      logger.warn(`Wiktionary lookup failed for "${normalizedWord}":`, wiktionaryResult.reason);
     }
     if (dictionaryResult.status === 'rejected') {
-      console.error(`Dictionary lookup failed for "${normalizedWord}":`, dictionaryResult.reason);
+      logger.warn(`Dictionary lookup failed for "${normalizedWord}":`, dictionaryResult.reason);
     }
     if (etymonlineResult.status === 'rejected') {
-      console.error(`Etymonline lookup failed for "${normalizedWord}":`, etymonlineResult.reason);
+      logger.warn(`Etymonline lookup failed for "${normalizedWord}":`, etymonlineResult.reason);
     }
 
     const wiktionaryData: WiktionaryData | null = wiktionaryResult.status === 'fulfilled' ? wiktionaryResult.value : null;
@@ -75,7 +78,7 @@ class EtymologyService {
 
     // PRIORITY 1: Add etymonline connections first (highest quality)
     if (etymonlineData && Array.isArray((etymonlineData as any).connections)) {
-      console.log(`Adding ${(etymonlineData as any).connections.length} HIGH-PRIORITY connections from etymonline`);
+      logger.debug(`Adding ${(etymonlineData as any).connections.length} HIGH-PRIORITY connections from etymonline`);
       for (const connection of (etymonlineData as any).connections) {
         const normalizedConnection = this.normalizeConnection(sourceWord, connection);
         if (normalizedConnection) {
@@ -133,7 +136,7 @@ class EtymologyService {
       });
 
       if (validCognates.length > 0) {
-        console.log(`Adding ${validCognates.length} validated cognates for "${normalizedWord}"`);
+        logger.debug(`Adding ${validCognates.length} validated cognates for "${normalizedWord}"`);
         const cognateConnections: NormalizedConnection[] = validCognates.map(cognate => ({
           word: {
             id: this.generateId(),
@@ -154,10 +157,10 @@ class EtymologyService {
 
         connections.push(...cognateConnections);
       } else {
-        console.log(`No valid cognates found for "${normalizedWord}" after filtering`);
+        logger.debug(`No valid cognates found for "${normalizedWord}" after filtering`);
       }
     } catch (error) {
-      console.error(`Cognate lookup failed for "${normalizedWord}":`, error);
+      logger.warn({ error }, `Cognate lookup failed for "${normalizedWord}"`);
     }
 
     // Filter out trivial same-language derivatives before deduplication
@@ -335,7 +338,7 @@ class EtymologyService {
 
       // IMPROVED: Enhanced validation of the connection before considering it
       if (sourceWord && !this.isValidEtymologicalConnection(connection, sourceWord)) {
-        console.log(`Skipping invalid connection: ${comparisonText} (${comparisonLang})`);
+        logger.debug(`Skipping invalid connection: ${comparisonText} (${comparisonLang})`);
         continue;
       }
 
@@ -547,71 +550,11 @@ class EtymologyService {
   }
 
   private normalizeLanguageCode(languageInput: string): string {
-    const normalized = (languageInput || '').toLowerCase().trim();
-
-    const mapping: [string, string][] = [
-      ['latin', 'la'],
-      ['greek', 'gr'],
-      ['proto-indo-european', 'ine-pro'],
-      ['proto-germanic', 'gem-pro'],
-      ['old english', 'en'],
-      ['middle english', 'en'],
-      ['anglo-norman', 'fr'],
-      ['old french', 'fr'],
-      ['middle french', 'fr'],
-      ['vulgar latin', 'la'],
-      ['classical latin', 'la'],
-      ['sanskrit', 'sa'],
-      ['old norse', 'non'],
-      ['old high german', 'de'],
-      ['middle high german', 'de'],
-      ['german', 'de'],
-      ['dutch', 'nl'],
-      ['spanish', 'es'],
-      ['italian', 'it'],
-      ['portuguese', 'pt'],
-      ['english', 'en'],
-      ['french', 'fr'],
-      ['celtic', 'cel'],
-      ['arabic', 'ar']
-    ];
-
-    for (const [prefix, code] of mapping) {
-      if (normalized.startsWith(prefix)) {
-        return code;
-      }
-    }
-
-    if (normalized.includes('proto')) {
-      return 'proto';
-    }
-
-    return 'und';
+    return normalizeLanguageCode(languageInput);
   }
 
   private getLanguageDisplay(code: string): string {
-    const normalized = (code || '').toLowerCase();
-    const names: Record<string, string> = {
-      en: 'English',
-      es: 'Spanish',
-      fr: 'French',
-      de: 'German',
-      it: 'Italian',
-      pt: 'Portuguese',
-      nl: 'Dutch',
-      la: 'Latin',
-      gr: 'Greek',
-      sa: 'Sanskrit',
-      non: 'Old Norse',
-      'gem-pro': 'Proto-Germanic',
-      'ine-pro': 'Proto-Indo-European',
-      proto: 'Proto Language',
-      cel: 'Celtic',
-      ar: 'Arabic',
-      und: 'Unknown'
-    };
-
-    return names[normalized] || code;
+    return getLanguageName(code);
   }
 
   private generateId(): string {
@@ -1072,7 +1015,7 @@ class EtymologyService {
     if (etymonlineAPI && typeof etymonlineAPI.clearAllCaches === 'function') {
       etymonlineAPI.clearAllCaches();
     }
-    console.log('All etymology service caches cleared');
+    logger.info('All etymology service caches cleared');
   }
 
   // Clear cache for a specific word
@@ -1088,7 +1031,7 @@ class EtymologyService {
       etymonlineAPI.clearWordCache(normalizedWord, normalizedLanguage);
     }
 
-    console.log(`Cache cleared for "${normalizedWord}" (${normalizedLanguage})`);
+    logger.info(`Cache cleared for "${normalizedWord}" (${normalizedLanguage})`);
   }
 }
 

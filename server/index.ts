@@ -11,6 +11,8 @@ import {
   GraphEdge,
   Connection
 } from './types';
+import { GRAPH_CACHE_CONFIG, QUICK_CACHE_CONFIG } from './config/cache';
+import { logger } from './utils/logger';
 
 // Using only real etymology sources from Wiktionary and Dictionary API
 
@@ -30,20 +32,10 @@ const etymologyService = getEtymologyService();
 const port = Number(process.env.PORT) || 54330;
 
 // Enhanced cache for faster response times
-const graphCache = new NodeCache({
-  stdTTL: 1800, // 30 minutes default
-  checkperiod: 600, // Check for expired keys every 10 minutes
-  useClones: false, // Better performance
-  maxKeys: 10000 // Limit cache size
-});
+const graphCache = new NodeCache(GRAPH_CACHE_CONFIG);
 
 // Quick response cache for immediate feedback
-const quickCache = new NodeCache({
-  stdTTL: 300, // 5 minutes for quick responses
-  checkperiod: 60, // Check every minute
-  useClones: false,
-  maxKeys: 1000
-});
+const quickCache = new NodeCache(QUICK_CACHE_CONFIG);
 
 // Helper function to intelligently select connections with randomization and PIE prioritization
 function selectConnectionsWithRandomization(connections: Connection[], maxCount: number, prioritizePieRoots: boolean = true): Connection[] {
@@ -275,7 +267,7 @@ fastify.get('/api/etymology/search', async (request: FastifyRequest<{ Querystrin
   }
 
   try {
-    console.log(`Searching etymology for: "${word}" (language: ${language || 'any'})`);
+    logger.info(`Searching etymology for: "${word}" (language: ${language || 'any'})`);
 
     const etymologyData = await getEtymologyService().findEtymologicalConnections(word, language);
 
@@ -323,7 +315,7 @@ fastify.get('/api/etymology/search', async (request: FastifyRequest<{ Querystrin
       sourceWord: etymologyData.sourceWord
     });
   } catch (error) {
-    console.error('Error in etymology search:', error);
+    logger.error({ error }, 'Error in etymology search');
     reply.code(500).send({ error: 'Internal server error' });
   }
 });
@@ -337,7 +329,7 @@ fastify.post('/api/etymology/expand', async (request: FastifyRequest<{ Body: Exp
   }
 
   try {
-    console.log(`Expanding node: "${wordText}" (${language})`);
+    logger.info(`Expanding node: "${wordText}" (${language})`);
 
     const etymologyData = await getEtymologyService().findEtymologicalConnections(wordText, language);
 
@@ -427,7 +419,7 @@ fastify.post('/api/etymology/expand', async (request: FastifyRequest<{ Body: Exp
     });
 
   } catch (error) {
-    console.error('Error expanding node:', error);
+    logger.error({ error }, 'Error expanding node');
     reply.code(500).send({ error: 'Internal server error' });
   }
 });
@@ -441,7 +433,7 @@ fastify.post('/api/etymology/initial', async (request: FastifyRequest<{ Body: In
   }
 
   try {
-    console.log(`Getting initial etymology data for: "${word}" (${language})`);
+    logger.info(`Getting initial etymology data for: "${word}" (${language})`);
 
     const etymologyData = await getEtymologyService().findEtymologicalConnections(word, language);
 
@@ -505,7 +497,7 @@ fastify.post('/api/etymology/initial', async (request: FastifyRequest<{ Body: In
     });
 
   } catch (error) {
-    console.error('Error getting initial etymology data:', error);
+    logger.error({ error }, 'Error getting initial etymology data');
     reply.code(500).send({ error: 'Internal server error' });
   }
 });
@@ -523,7 +515,7 @@ fastify.post('/api/etymology/neighbors', async (request: FastifyRequest<{ Body: 
   }
 
   try {
-    console.log(`Finding neighbors for: "${word}" (${language}) with wordId: ${wordId}`);
+    logger.info(`Finding neighbors for: "${word}" (${language}) with wordId: ${wordId}`);
 
     // Quick cache check - include all factors that affect the result
     const sortedExcludeIds = [...excludeIds].sort().join(',');
@@ -531,7 +523,7 @@ fastify.post('/api/etymology/neighbors', async (request: FastifyRequest<{ Body: 
     const cacheKey = `neighbors:${language}:${word.toLowerCase()}:${effectiveMaxNodes}:${currentNeighborCount}:${sortedExcludeIds}`;
     const cached = quickCache.get(cacheKey);
     if (cached) {
-      console.log('Using cached neighbors result');
+      logger.debug('Using cached neighbors result');
       return reply.send(cached);
     }
 
@@ -582,7 +574,7 @@ fastify.post('/api/etymology/neighbors', async (request: FastifyRequest<{ Body: 
     reply.send(result);
 
   } catch (error) {
-    console.error('Error finding neighbors:', error);
+    logger.error({ error }, 'Error finding neighbors');
     reply.code(500).send({ error: 'Internal server error' });
   }
 });
@@ -602,7 +594,7 @@ fastify.get('/api/words/:wordText', async (request: FastifyRequest<{ Params: { w
       connections: etymologyData.connections.slice(0, 5) // Limit to 5 for details view
     });
   } catch (error) {
-    console.error('Error getting word details:', error);
+    logger.error({ error }, 'Error getting word details');
     reply.code(500).send({ error: 'Internal server error' });
   }
 });
@@ -633,42 +625,14 @@ fastify.get('/api/debug/cache', async (request: FastifyRequest, reply: FastifyRe
   });
 });
 
-// Test shared root endpoint
-fastify.get('/api/test-shared-root', async (request: FastifyRequest, reply: FastifyReply) => {
-  try {
-    const testWords = [
-      { text: 'mother', language: 'en' },
-      { text: 'mutter', language: 'de' },
-      { text: 'mère', language: 'fr' }
-    ];
-
-    const results = [];
-    for (const word of testWords) {
-      const etymologyData = await getEtymologyService().findEtymologicalConnections(word.text, word.language);
-      results.push({
-        word: word.text,
-        language: word.language,
-        connections: etymologyData.connections.slice(0, 3)
-      });
-    }
-
-    reply.send({
-      testResults: results,
-      message: 'Shared root test completed'
-    });
-  } catch (error) {
-    console.error('Error in shared root test:', error);
-    reply.code(500).send({ error: 'Internal server error' });
-  }
-});
 
 // Start server
 const start = async (): Promise<void> => {
   try {
     await fastify.listen({ port, host: '0.0.0.0' });
-    console.log(`Dynamic Etymology Mapping server running on port ${port}`);
-    console.log('Using on-demand etymology lookup service');
-    console.log('Framework: Fastify with TypeScript');
+    logger.info(`Dynamic Etymology Mapping server running on port ${port}`);
+    logger.info('Using on-demand etymology lookup service');
+    logger.info('Framework: Fastify with TypeScript');
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);
