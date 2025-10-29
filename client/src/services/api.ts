@@ -1,4 +1,5 @@
-import type { Word, SubgraphResponse, Language } from '../types';
+import type { Word } from '../types';
+import { logger } from '../utils/logger';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:54330/api';
 
@@ -21,7 +22,7 @@ class ApiService {
 
       return await response.json();
     } catch (error) {
-      console.error(`API request failed for ${endpoint}:`, error);
+      logger.error(`API request failed for ${endpoint}:`, error);
       throw error;
     }
   }
@@ -41,21 +42,6 @@ class ApiService {
     return this.request<{ word: Word; connections: any[] }>(`/words/${encodeURIComponent(wordText)}?${params}`);
   }
 
-  async getSubgraph(wordId: string, degrees: number = 2): Promise<SubgraphResponse> {
-    return this.request<SubgraphResponse>(`/graph/subgraph/${wordId}?degrees=${degrees}`);
-  }
-
-  async expandEtymology(word: string, language: string, existingNodes: any[]): Promise<any> {
-    return this.request(`/etymology/expand`, {
-      method: 'POST',
-      body: JSON.stringify({
-        word,
-        language,
-        existingNodes
-      }),
-    });
-  }
-
   async getInitialConnections(
     word: string,
     language: string,
@@ -72,7 +58,7 @@ class ApiService {
       });
     } catch (error) {
       // Fallback to existing search endpoint
-      console.log('New endpoint failed, using fallback...');
+      logger.warn('New endpoint failed, using fallback...');
       const searchResult = await this.searchEtymology(word, language);
 
       // Transform the existing format to the new format
@@ -117,49 +103,13 @@ class ApiService {
         }),
       });
     } catch (error) {
-      console.log('Neighbors endpoint failed:', error);
+      logger.warn('Neighbors endpoint failed:', error);
       return {
         neighbors: [],
         connections: [],
         totalAvailable: 0
       };
     }
-  }
-
-  async getLanguages(): Promise<Language[]> {
-    return this.request<Language[]>('/languages');
-  }
-
-  async addWord(word: Partial<Word>): Promise<Word> {
-    return this.request<Word>('/words', {
-      method: 'POST',
-      body: JSON.stringify(word),
-    });
-  }
-
-  async addConnection(connection: {
-    sourceWordId: string;
-    targetWordId: string;
-    relationshipType: string;
-    confidence?: number;
-    notes?: string;
-  }): Promise<any> {
-    return this.request('/connections', {
-      method: 'POST',
-      body: JSON.stringify(connection),
-    });
-  }
-
-  async getHealth(): Promise<{
-    status: string;
-    timestamp: string;
-    data: {
-      words: number;
-      connections: number;
-      languages: number;
-    };
-  }> {
-    return this.request('/health');
   }
 }
 

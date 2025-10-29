@@ -245,7 +245,7 @@ const FloatingSettings: React.FC<FloatingSettingsProps> = ({
               <div className="bg-gray-50 rounded-xl p-4">
                 <div className="text-slate-600 text-xs font-medium mb-2">Graph Statistics</div>
                 <div className="text-slate-700 text-sm font-medium">
-                  {nodeCount} nodes • {edgeCount} connections
+                  {nodeCount} nodes {'\u2022'} {edgeCount} connections
                 </div>
               </div>
 

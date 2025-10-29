@@ -5,7 +5,7 @@ import SearchBar from './components/SearchBar';
 import FloatingSettings from './components/FloatingSettings';
 import { apiService } from './services/api';
 import type { Word, GraphState, GraphSettings } from './types';
-import './App.css';
+import { logger } from './utils/logger';
 import './styles/themes.css';
 
 export type ThemeName = 'minimalist' | 'origami' | 'bauhaus' | 'swiss' | 'brutalist' | 'art_deco' | 'constructivist' | 'memphis' | 'japanese' | 'scandinavian' | 'modernist' | 'deconstructivist';
@@ -136,11 +136,11 @@ function LanguageMappingApp() {
     const expandingWordKey = createWordKey(expandingNode.data.word.text, expandingNode.data.word.language);
 
     // Only check if any new neighbor is the exact same word as the expanding node
-    // This prevents true self-referential loops like test → test
+    // This prevents true self-referential loops like test -> test
     for (const neighbor of newNeighbors) {
       const neighborKey = createWordKey(neighbor.data.word.text, neighbor.data.word.language);
       if (neighborKey === expandingWordKey) {
-        console.log('Prevented self-referential loop:', expandingNode.data.word.text, '→', neighbor.data.word.text);
+        logger.debug('Prevented self-referential loop:', expandingNode.data.word.text, '->', neighbor.data.word.text);
         return true;
       }
     }
@@ -172,7 +172,7 @@ function LanguageMappingApp() {
         edge.source === wordId || edge.target === wordId
       ).length;
 
-      console.log('API call: expanding node', wordId, 'excluding', excludeIds.length, 'existing nodes', 'current neighbors:', currentNeighborCount);
+      logger.debug('API call: expanding node', wordId, 'excluding', excludeIds.length, 'existing nodes', 'current neighbors:', currentNeighborCount);
 
       const result = await apiService.getNeighbors(
         wordId,
@@ -184,13 +184,13 @@ function LanguageMappingApp() {
         node.data.word.language // Pass word language
       );
 
-      console.log('API response:', result);
+      logger.debug('API response:', result);
       return result;
     },
     retry: 2, // Retry failed expansions up to 2 times
     retryDelay: 1000, // Wait 1 second between retries
     onSuccess: (data, variables) => {
-      console.log('API returned data:', {
+      logger.debug('API returned data:', {
         neighbors: data.neighbors?.length || 0,
         connections: data.connections?.length || 0,
         note: data.note || 'none',
@@ -249,7 +249,7 @@ function LanguageMappingApp() {
         let duplicateCount = 0;
         // Check for self-referential loops before processing
         if (wouldCreateLoop(variables.wordId, data.neighbors || [], newNodes)) {
-          console.log('Expansion blocked: would create self-referential loop');
+          logger.debug('Expansion blocked: would create self-referential loop');
 
           // Clear expanding flag but don't mark as expanded since we blocked it
           const expandingNode = newNodes.get(variables.wordId);
@@ -282,7 +282,7 @@ function LanguageMappingApp() {
           const word = nodeData.data.word;
 
           if (isMalformedWord(word.text, word.language)) {
-            console.log('Filtered malformed word:', word.text, '(' + word.language + ')');
+            logger.debug('Filtered malformed word:', word.text, '(' + word.language + ')');
             duplicateCount++; // Count as duplicate to track filtering
             return;
           }
@@ -324,7 +324,7 @@ function LanguageMappingApp() {
           });
         }
 
-        console.log('Node expansion completed:', {
+        logger.debug('Node expansion completed:', {
           nodesAdded: addedCount,
           duplicatesSkipped: duplicateCount,
           totalNodes: newNodes.size,
@@ -358,7 +358,7 @@ function LanguageMappingApp() {
       });
     },
     onError: (error, variables) => {
-      console.error('Node expansion failed:', error, 'for node:', variables.wordId);
+      logger.error('Node expansion failed:', error, 'for node:', variables.wordId);
       setError(`Failed to expand node. ${error.message || 'Please try again.'}`);
 
       // On error, clear expanding flag but don't mark as expanded so user can retry
@@ -414,7 +414,7 @@ function LanguageMappingApp() {
         const word = node.data.word;
 
         if (isMalformedWord(word.text, word.language)) {
-          console.log('Filtered malformed word in initial graph:', word.text, '(' + word.language + ')');
+          logger.debug('Filtered malformed word in initial graph:', word.text, '(' + word.language + ')');
           duplicateNeighbors++; // Count as duplicate to track filtering
           return;
         }
@@ -449,7 +449,7 @@ function LanguageMappingApp() {
         sourceWordId: initialGraphQuery.data.sourceNode.id
       }));
 
-      console.log('Initial graph loaded:', {
+      logger.debug('Initial graph loaded:', {
         totalNodes: nodes.size,
         totalEdges: edges.size,
         neighborsAdded: addedNeighbors,
@@ -466,7 +466,7 @@ function LanguageMappingApp() {
     // Check if we're searching for the same word as current graph
     if (normalizedWord === currentWord && language === sourceLanguage && !showInitialScreen) {
       // Reload the current graph with current settings
-      console.log(`Reloading graph for "${word}" with current max neighbors: ${graphState.settings.maxNeighbors}`);
+      logger.debug(`Reloading graph for "${word}" with current max neighbors: ${graphState.settings.maxNeighbors}`);
       showNotification(
         `Reloading "${word}" with max neighbors: ${graphState.settings.maxNeighbors}`,
         'info'
@@ -498,11 +498,11 @@ function LanguageMappingApp() {
   const handleNodeClick = (word: Word) => {
     const node = graphState.nodes.get(word.id);
     if (!node) {
-      console.warn('Node not found in graph state:', word.id, word.text);
+      logger.warn('Node not found in graph state:', word.id, word.text);
       return;
     }
 
-    console.log('Node clicked:', {
+    logger.debug('Node clicked:', {
       wordId: word.id,
       wordText: word.text,
       language: word.language,
@@ -514,7 +514,7 @@ function LanguageMappingApp() {
 
     // Allow clicks even if a different mutation is in progress, but prevent multiple expansions of the same node
     if (node.data.expanding) {
-      console.log('This specific node is already expanding, skipping click');
+      logger.debug('This specific node is already expanding, skipping click');
       showNotification(
         `"${word.text}" is already expanding, please wait...`,
         'info',
@@ -525,7 +525,7 @@ function LanguageMappingApp() {
 
     // Prevent expansion of nodes that are themselves malformed
     if (isMalformedWord(word.text, word.language)) {
-      console.log('Preventing expansion of malformed word:', word.text);
+      logger.debug('Preventing expansion of malformed word:', word.text);
       showNotification(
         `Cannot expand corrupted word "${word.text}"`,
         'warning'
@@ -535,14 +535,14 @@ function LanguageMappingApp() {
 
     // If node is not expanded and not currently expanding, expand it
     if (!node.data.expanded && !node.data.expanding) {
-      console.log('Expanding node:', word.text, word.language, 'with ID:', word.id);
+      logger.debug('Expanding node:', word.text, word.language, 'with ID:', word.id);
 
       // Mark node as expanding to prevent double-clicks (but not expanded yet)
       setGraphState(prev => {
         const newNodes = new Map(prev.nodes);
         const targetNode = newNodes.get(word.id);
         if (targetNode) {
-          console.log('Marking node as expanding:', word.id);
+          logger.debug('Marking node as expanding:', word.id);
           newNodes.set(word.id, {
             ...targetNode,
             data: {
@@ -551,7 +551,7 @@ function LanguageMappingApp() {
             }
           });
         } else {
-          console.warn('Target node not found for marking as expanding:', word.id);
+          logger.warn('Target node not found for marking as expanding:', word.id);
         }
         return { ...prev, nodes: newNodes };
       });
@@ -559,10 +559,10 @@ function LanguageMappingApp() {
       // Start the expansion mutation
       expandNodeMutation.mutate({ wordId: word.id });
     } else if (node.data.expanding) {
-      console.log('Node already expanding:', word.text);
+      logger.debug('Node already expanding:', word.text);
       // Visual feedback only - no notification needed
     } else if (node.data.expanded) {
-      console.log('Node already expanded:', word.text);
+      logger.debug('Node already expanded:', word.text);
       showNotification(
         `"${word.text}" has already been expanded to its maximum connections`,
         'info'
@@ -600,7 +600,7 @@ function LanguageMappingApp() {
         sourceLanguage &&
         !showInitialScreen) {
 
-      console.log(`Max neighbors changed from ${oldMaxNeighbors} to ${newSettings.maxNeighbors}, reloading graph`);
+      logger.debug(`Max neighbors changed from ${oldMaxNeighbors} to ${newSettings.maxNeighbors}, reloading graph`);
       showNotification(
         `Reloading "${sourceWord}" with ${newSettings.maxNeighbors} max neighbors`,
         'info'
