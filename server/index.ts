@@ -147,6 +147,11 @@ fastify.get('/api/etymology/search', async (request: FastifyRequest<{ Querystrin
     return reply.code(400).send({ error: 'Word parameter is required' });
   }
 
+  // Validate word length to prevent abuse
+  if (word.length > 100) {
+    return reply.code(400).send({ error: 'Word parameter is too long (max 100 characters)' });
+  }
+
   try {
     logger.info(`Searching etymology for: "${word}" (language: ${language || 'any'})`);
 
@@ -209,13 +214,21 @@ fastify.post('/api/etymology/initial', async (request: FastifyRequest<{ Body: In
     return reply.code(400).send({ error: 'Word parameter is required' });
   }
 
+  // Validate word length to prevent abuse
+  if (word.length > 100) {
+    return reply.code(400).send({ error: 'Word parameter is too long (max 100 characters)' });
+  }
+
+  // Validate and cap maxConnections to prevent DoS
+  const safeMaxConnections = Math.min(Math.max(1, maxConnections), 50);
+
   try {
     logger.info(`Getting initial etymology data for: "${word}" (${language})`);
 
     const etymologyData = await etymologyService.findEtymologicalConnections(word, language);
 
     // Select connections with enhanced randomization
-    const selectedConnections = selectConnectionsWithRandomization(etymologyData.connections, maxConnections, true);
+    const selectedConnections = selectConnectionsWithRandomization(etymologyData.connections, safeMaxConnections, true);
 
     const nodes: GraphNode[] = [];
     const edges: GraphEdge[] = [];
@@ -291,13 +304,26 @@ fastify.post('/api/etymology/neighbors', async (request: FastifyRequest<{ Body: 
     return reply.code(400).send({ error: 'Word text is required for neighbors lookup' });
   }
 
+  // Validate word length to prevent abuse
+  if (word.length > 100) {
+    return reply.code(400).send({ error: 'Word parameter is too long (max 100 characters)' });
+  }
+
+  // Validate and cap parameters to prevent DoS
+  const safeMaxNodes = Math.min(Math.max(1, maxNodes), 20);
+  const safeMaxNeighbors = Math.min(Math.max(1, maxNeighbors), 50);
+  const safeCurrentNeighborCount = Math.max(0, currentNeighborCount);
+
+  // Validate excludeIds is an array and limit its size
+  const safeExcludeIds = Array.isArray(excludeIds) ? excludeIds.slice(0, 100) : [];
+
   try {
     logger.info(`Finding neighbors for: "${word}" (${language}) with wordId: ${wordId}`);
 
     // Quick cache check - include all factors that affect the result
-    const sortedExcludeIds = [...excludeIds].sort().join(',');
-    const effectiveMaxNodes = Math.min(maxNodes, maxNeighbors - currentNeighborCount);
-    const cacheKey = `neighbors:${language}:${word.toLowerCase()}:${effectiveMaxNodes}:${currentNeighborCount}:${sortedExcludeIds}`;
+    const sortedExcludeIds = [...safeExcludeIds].sort().join(',');
+    const effectiveMaxNodes = Math.min(safeMaxNodes, safeMaxNeighbors - safeCurrentNeighborCount);
+    const cacheKey = `neighbors:${language}:${word.toLowerCase()}:${effectiveMaxNodes}:${safeCurrentNeighborCount}:${sortedExcludeIds}`;
     const cached = quickCache.get(cacheKey);
     if (cached) {
       logger.debug('Using cached neighbors result');
@@ -308,12 +334,12 @@ fastify.post('/api/etymology/neighbors', async (request: FastifyRequest<{ Body: 
 
     // Select connections with randomization, excluding already shown nodes
     const availableConnections = etymologyData.connections.filter((conn: Connection) =>
-      !excludeIds.includes(conn.word.id)
+      !safeExcludeIds.includes(conn.word.id)
     );
 
     const selectedConnections = selectConnectionsWithRandomization(
       availableConnections,
-      Math.min(maxNodes, maxNeighbors - currentNeighborCount),
+      Math.min(safeMaxNodes, safeMaxNeighbors - safeCurrentNeighborCount),
       false
     );
 
