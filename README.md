@@ -8,9 +8,10 @@
       <a href="https://etmos.pages.dev" target="_blank">
           <b>https://etmos.pages.dev</b>
       </a>
+     </div>
     <br>
     A visual, interactive graph-based application for exploring etymological connections between words across different languages. 
-  </div>
+ 
 
 
 ## Tech Stack
