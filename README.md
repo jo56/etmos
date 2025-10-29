@@ -10,7 +10,8 @@
       </a>
      </div>
     <br>
-    A visual, interactive graph-based application for exploring etymological connections between words across different languages. 
+    
+A visual, interactive graph-based application for exploring etymological connections between words across different languages. 
  
 
 
