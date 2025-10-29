@@ -1,11 +1,5 @@
 import * as d3 from 'd3';
 
-export interface Language {
-  code: string;
-  name: string;
-  family?: string;
-}
-
 export interface Word {
   id: string;
   text: string;
@@ -47,24 +41,6 @@ export interface GraphEdge {
   data: {
     connection: EtymologicalConnection;
   };
-}
-
-export interface SearchResult {
-  words: Word[];
-  total: number;
-  query?: string;
-}
-
-export interface SubgraphResponse {
-  nodes: GraphNode[];
-  edges: GraphEdge[];
-  center: string;
-}
-
-export interface ExpandResponse {
-  nodes: GraphNode[];
-  edges: GraphEdge[];
-  expandedWordId: string;
 }
 
 export interface GraphSettings {

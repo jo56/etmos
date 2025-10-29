@@ -1,7 +1,8 @@
 import { randomUUID } from 'crypto';
 import NodeCache from 'node-cache';
 import { Word, Connection, EtymologyData, WiktionaryData, DictionaryApiData, EtymonlineData } from '../types';
-import { normalizeLanguageCode, getLanguageName } from '../constants/languages';
+import { normalizeLanguageCode, getLanguageName } from '../../shared/constants/languages';
+import { getRomanceRoot, getGermanicRoot, areRootsRelated } from '../../shared/utils/etymologyUtils';
 import { ETYMOLOGY_SERVICE_CACHE_CONFIG } from '../config/cache';
 import { logger } from '../utils/logger';
 
@@ -565,67 +566,6 @@ class EtymologyService {
     }
   }
 
-  async expandFromWord(wordText: string, language: string): Promise<EtymologyData> {
-    return this.findEtymologicalConnections(wordText, language);
-  }
-
-  extractEtymologicalAncestors(originText: string): Array<{ word: string; language: string; sourceName: string }> {
-    const ancestors: Array<{ word: string; language: string; sourceName: string }> = [];
-
-    if (typeof originText !== 'string') {
-      return ancestors;
-    }
-
-    // Enhanced patterns for finding etymological ancestors - improved PIE detection
-    const ancestorPatterns = [
-      // Proto-languages with reconstructed forms - improved character class
-      { regex: /(Proto-[A-Za-z-]+)\s+(\*[a-zA-Z₀-₉ʰₑʷβɟḱĝʷʲʼ-]+)/gi, langExtractor: (match: RegExpExecArray) => this.getLanguageCodeFromName(match[1]) },
-
-      // PIE forms - multiple patterns for better detection
-      { regex: /(PIE|Proto-Indo-European)\s+(?:root\s+)?(\*[a-zA-Z₀-₉ʰₑʷβɟḱĝʷʲʼ-]+)/gi, langExtractor: () => 'ine-pro' },
-      { regex: /from\s+(PIE|Proto-Indo-European)\s+(\*[a-zA-Z₀-₉ʰₑʷβɟḱĝʷʲʼ-]+)/gi, langExtractor: () => 'ine-pro' },
-      { regex: /(\*[a-zA-Z₀-₉ʰₑʷβɟḱĝʷʲʼ-]+)\s+root/gi, langExtractor: () => 'ine-pro' },
-
-      // Historical language forms
-      { regex: /(Old|Middle|Ancient)\s+([A-Za-z]+)\s+([a-zA-Z-]+)/gi, langExtractor: (match: RegExpExecArray) => this.getLanguageCodeFromName(`${match[1]} ${match[2]}`) },
-
-      // Latin forms
-      { regex: /Latin\s+([a-zA-Z-]+)/gi, langExtractor: () => 'la' },
-
-      // Greek forms
-      { regex: /(Ancient\s+)?Greek\s+([a-zA-Zα-ωΑ-Ω-]+)/gi, langExtractor: () => 'grc' },
-
-      // Sanskrit forms
-      { regex: /Sanskrit\s+([a-zA-Z-]+)/gi, langExtractor: () => 'sa' },
-
-      // Germanic forms
-      { regex: /(Proto-)?Germanic\s+(\*?[a-zA-Z-]+)/gi, langExtractor: () => 'gem-pro' }
-    ];
-
-    for (const pattern of ancestorPatterns) {
-      let match;
-      while ((match = pattern.regex.exec(originText)) !== null) {
-        const language = pattern.langExtractor(match);
-        let word = match[match.length - 1]; // Last capture group is usually the word
-
-        if (word && word.length > 1) {
-          // Clean up the word
-          word = word.replace(/[.,;:]+$/, '').trim();
-
-          if (word.length > 1) {
-            ancestors.push({
-              word: word,
-              language: language,
-              sourceName: match[0].trim()
-            });
-          }
-        }
-      }
-    }
-
-    return ancestors;
-  }
-
   inferSharedRoot(sourceWord: Word, targetWord: Word, relationship: any): string {
     const candidates: string[] = [];
 
@@ -907,8 +847,8 @@ class EtymologyService {
 
     if (isSourceRomance && isTargetRomance) {
       // Remove common Romance endings to find root
-      const sourceRoot = this.getRomanceRoot(source);
-      const targetRoot = this.getRomanceRoot(target);
+      const sourceRoot = getRomanceRoot(source);
+      const targetRoot = getRomanceRoot(target);
 
       if (sourceRoot === targetRoot && sourceRoot.length >= 3) {
         return true;
@@ -931,7 +871,7 @@ class EtymologyService {
         if (source.match(pattern.en) && target.match(pattern.romance)) {
           const sourceBase = source.replace(pattern.en, '');
           const targetBase = target.replace(pattern.romance, '');
-          if (this.areRootsRelated(sourceBase, targetBase)) {
+          if (areRootsRelated(sourceBase, targetBase)) {
             return true;
           }
         }
@@ -945,8 +885,8 @@ class EtymologyService {
 
     if (isSourceGermanic && isTargetGermanic) {
       // Remove Germanic endings
-      const sourceRoot = this.getGermanicRoot(source);
-      const targetRoot = this.getGermanicRoot(target);
+      const sourceRoot = getGermanicRoot(source);
+      const targetRoot = getGermanicRoot(target);
 
       if (sourceRoot === targetRoot && sourceRoot.length >= 3) {
         return true;
@@ -954,58 +894,6 @@ class EtymologyService {
     }
 
     return false;
-  }
-
-  getRomanceRoot(word: string): string {
-    // Remove common Romance language endings
-    const endings = [
-      'ción', 'sión', 'tion', 'sion', 'zione', 'sione', 'ção', 'são',
-      'idad', 'ité', 'ità', 'idade', 'tate', 'dad',
-      'oso', 'osa', 'eux', 'euse', 'oso', 'osa',
-      'ico', 'ica', 'ique', 'ico', 'ica',
-      'al', 'ale', 'ar', 'er', 'ir', 'are', 'ere', 'ire'
-    ];
-
-    for (const ending of endings) {
-      if (word.endsWith(ending) && word.length > ending.length + 2) {
-        return word.slice(0, -ending.length);
-      }
-    }
-    return word;
-  }
-
-  getGermanicRoot(word: string): string {
-    // Remove common Germanic endings
-    const endings = [
-      'ing', 'ed', 'er', 'est', 'ly', 'ness', 'ment',
-      'en', 'an', 'ung', 'heit', 'keit', 'lich', 'isch'
-    ];
-
-    for (const ending of endings) {
-      if (word.endsWith(ending) && word.length > ending.length + 2) {
-        return word.slice(0, -ending.length);
-      }
-    }
-    return word;
-  }
-
-  areRootsRelated(root1: string, root2: string): boolean {
-    // Simple similarity check for roots
-    if (root1 === root2) return true;
-    if (Math.abs(root1.length - root2.length) > 2) return false;
-
-    // Check for similar roots with minor spelling differences
-    const maxDiff = Math.floor(Math.min(root1.length, root2.length) / 3);
-    let differences = 0;
-
-    for (let i = 0; i < Math.min(root1.length, root2.length); i++) {
-      if (root1[i] !== root2[i]) {
-        differences++;
-        if (differences > maxDiff) return false;
-      }
-    }
-
-    return differences <= maxDiff;
   }
 
   // Clear all caches for consistent behavior

@@ -6,7 +6,6 @@ import FloatingSettings from './components/FloatingSettings';
 import { apiService } from './services/api';
 import type { Word, GraphState, GraphSettings } from './types';
 import { logger } from './utils/logger';
-import './App.css';
 import './styles/themes.css';
 
 export type ThemeName = 'minimalist' | 'origami' | 'bauhaus' | 'swiss' | 'brutalist' | 'art_deco' | 'constructivist' | 'memphis' | 'japanese' | 'scandinavian' | 'modernist' | 'deconstructivist';

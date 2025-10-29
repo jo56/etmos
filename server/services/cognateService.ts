@@ -1,5 +1,7 @@
 import NodeCache from 'node-cache';
 import { logger } from '../utils/logger';
+import { getLanguageName } from '../../shared/constants/languages';
+import { getRomanceRoot, getGermanicRoot, areRootsRelated } from '../../shared/utils/etymologyUtils';
 
 const cache = new NodeCache({ stdTTL: 14400 });
 
@@ -347,26 +349,7 @@ class CognateService {
   }
 
   getLanguageName(code: string): string {
-    const names: { [key: string]: string } = {
-      en: 'English',
-      es: 'Spanish',
-      fr: 'French',
-      de: 'German',
-      it: 'Italian',
-      pt: 'Portuguese',
-      nl: 'Dutch',
-      la: 'Latin',
-      gr: 'Greek',
-      ru: 'Russian',
-      pl: 'Polish',
-      cs: 'Czech',
-      ar: 'Arabic',
-      he: 'Hebrew',
-      hi: 'Hindi',
-      sa: 'Sanskrit'
-    };
-
-    return names[code] || code.toUpperCase();
+    return getLanguageName(code);
   }
 
   private isDerivative(sourceText: string, targetText: string, sourceLang: string, targetLang: string): boolean {
@@ -439,8 +422,8 @@ class CognateService {
     const isTargetRomance = romanceLanguages.includes(targetLang);
 
     if (isSourceRomance && isTargetRomance) {
-      const sourceRoot = this.getRomanceRoot(source);
-      const targetRoot = this.getRomanceRoot(target);
+      const sourceRoot = getRomanceRoot(source);
+      const targetRoot = getRomanceRoot(target);
 
       if (sourceRoot === targetRoot && sourceRoot.length >= 3) {
         return true;
@@ -461,7 +444,7 @@ class CognateService {
         if (source.match(pattern.en) && target.match(pattern.romance)) {
           const sourceBase = source.replace(pattern.en, '');
           const targetBase = target.replace(pattern.romance, '');
-          if (this.areRootsRelated(sourceBase, targetBase)) {
+          if (areRootsRelated(sourceBase, targetBase)) {
             return true;
           }
         }
@@ -473,8 +456,8 @@ class CognateService {
     const isTargetGermanic = germanicLanguages.includes(targetLang);
 
     if (isSourceGermanic && isTargetGermanic) {
-      const sourceRoot = this.getGermanicRoot(source);
-      const targetRoot = this.getGermanicRoot(target);
+      const sourceRoot = getGermanicRoot(source);
+      const targetRoot = getGermanicRoot(target);
 
       if (sourceRoot === targetRoot && sourceRoot.length >= 3) {
         return true;
@@ -482,54 +465,6 @@ class CognateService {
     }
 
     return false;
-  }
-
-  private getRomanceRoot(word: string): string {
-    const endings = [
-      'ción', 'sión', 'tion', 'sion', 'zione', 'sione', 'ção', 'são',
-      'idad', 'ité', 'ità', 'idade', 'tate', 'dad',
-      'oso', 'osa', 'eux', 'euse', 'oso', 'osa',
-      'ico', 'ica', 'ique', 'ico', 'ica',
-      'al', 'ale', 'ar', 'er', 'ir', 'are', 'ere', 'ire'
-    ];
-
-    for (const ending of endings) {
-      if (word.endsWith(ending) && word.length > ending.length + 2) {
-        return word.slice(0, -ending.length);
-      }
-    }
-    return word;
-  }
-
-  private getGermanicRoot(word: string): string {
-    const endings = [
-      'ing', 'ed', 'er', 'est', 'ly', 'ness', 'ment',
-      'en', 'an', 'ung', 'heit', 'keit', 'lich', 'isch'
-    ];
-
-    for (const ending of endings) {
-      if (word.endsWith(ending) && word.length > ending.length + 2) {
-        return word.slice(0, -ending.length);
-      }
-    }
-    return word;
-  }
-
-  private areRootsRelated(root1: string, root2: string): boolean {
-    if (root1 === root2) return true;
-    if (Math.abs(root1.length - root2.length) > 2) return false;
-
-    const maxDiff = Math.floor(Math.min(root1.length, root2.length) / 3);
-    let differences = 0;
-
-    for (let i = 0; i < Math.min(root1.length, root2.length); i++) {
-      if (root1[i] !== root2[i]) {
-        differences++;
-        if (differences > maxDiff) return false;
-      }
-    }
-
-    return differences <= maxDiff;
   }
 }
 

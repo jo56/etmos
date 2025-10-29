@@ -4,7 +4,6 @@ import formbody from '@fastify/formbody';
 import NodeCache from 'node-cache';
 import {
   SearchQueryParams,
-  ExpandRequestBody,
   InitialRequestBody,
   NeighborsRequestBody,
   GraphNode,
@@ -13,21 +12,7 @@ import {
 } from './types';
 import { GRAPH_CACHE_CONFIG, QUICK_CACHE_CONFIG } from './config/cache';
 import { logger } from './utils/logger';
-
-// Using only real etymology sources from Wiktionary and Dictionary API
-
-// Development cache-busting mechanism
-function getEtymologyService() {
-  // Always clear cache in development to pick up changes immediately
-  delete require.cache[require.resolve('./services/etymologyService')];
-  delete require.cache[require.resolve('./services/wiktionaryAPI')];
-  // Removed universal engine - using only real sources
-  const service = require('./services/etymologyService');
-  return service.default || service;
-}
-
-// Use cache-busted service
-const etymologyService = getEtymologyService();
+import etymologyService from './services/etymologyService';
 
 const port = Number(process.env.PORT) || 54330;
 
@@ -94,157 +79,6 @@ function selectConnectionsWithRandomization(connections: Connection[], maxCount:
   return selected;
 }
 
-// Helper function to find cross-node connections based on word matching
-function findCrossNodeConnections(expandingNode: GraphNode, existingNodes: GraphNode[], existingEdges: GraphEdge[]): any[] {
-  const crossConnections: any[] = [];
-  const expandingWord = expandingNode.data.word;
-
-  // Check each existing node for potential cross-connections
-  for (const existingNode of existingNodes) {
-    // Skip if it's the same node
-    if (existingNode.id === expandingNode.id) continue;
-
-    const existingWord = existingNode.data.word;
-
-    // Check if there's already a direct connection between these nodes
-    const hasDirectConnection = existingEdges.some(edge =>
-      (edge.source === expandingNode.id && edge.target === existingNode.id) ||
-      (edge.source === existingNode.id && edge.target === expandingNode.id)
-    );
-
-    if (hasDirectConnection) continue;
-
-    // Look for potential connections based on various criteria
-    const connectionType = determineConnectionType(expandingWord, existingWord);
-
-    if (connectionType) {
-      crossConnections.push({
-        sourceNodeId: expandingNode.id,
-        targetNodeId: existingNode.id,
-        connection: {
-          word: existingWord,
-          type: connectionType.type,
-          confidence: connectionType.confidence,
-          source: 'cross-analysis',
-          notes: connectionType.notes
-        }
-      });
-    }
-  }
-
-  return crossConnections;
-}
-
-// Helper function to determine if two words should be connected
-function determineConnectionType(word1: any, word2: any): { type: string; confidence: number; notes: string } | null {
-  // Check for exact text match in different languages (cognates)
-  if (word1.text.toLowerCase() === word2.text.toLowerCase() && word1.language !== word2.language) {
-    return {
-      type: 'cognate',
-      confidence: 0.9,
-      notes: `Identical forms in ${word1.language} and ${word2.language}`
-    };
-  }
-
-  // Check for similar spelling (potential cognates or borrowings)
-  const similarity = calculateStringSimilarity(word1.text.toLowerCase(), word2.text.toLowerCase());
-  if (similarity > 0.7 && word1.language !== word2.language) {
-    const confidence = Math.min(0.8, similarity * 0.9);
-    return {
-      type: similarity > 0.85 ? 'cognate' : 'borrowing',
-      confidence,
-      notes: `High similarity between ${word1.language} "${word1.text}" and ${word2.language} "${word2.text}"`
-    };
-  }
-
-  // Check for root sharing (both from proto-languages)
-  if ((word1.language.includes('pro') || word1.text.startsWith('*')) &&
-      (word2.language.includes('pro') || word2.text.startsWith('*'))) {
-    const rootSimilarity = calculateStringSimilarity(
-      word1.text.replace(/^\*/, ''),
-      word2.text.replace(/^\*/, '')
-    );
-    if (rootSimilarity > 0.6) {
-      return {
-        type: 'shared-root',
-        confidence: Math.min(0.7, rootSimilarity * 0.8),
-        notes: `Potential shared proto-root between "${word1.text}" and "${word2.text}"`
-      };
-    }
-  }
-
-  return null;
-}
-
-// Helper function to calculate string similarity
-function calculateStringSimilarity(str1: string, str2: string): number {
-  const longer = str1.length > str2.length ? str1 : str2;
-  const shorter = str1.length > str2.length ? str2 : str1;
-
-  if (longer.length === 0) return 1.0;
-
-  const editDistance = levenshteinDistance(longer, shorter);
-  return (longer.length - editDistance) / longer.length;
-}
-
-// Levenshtein distance implementation
-function levenshteinDistance(str1: string, str2: string): number {
-  const matrix: number[][] = [];
-
-  for (let i = 0; i <= str2.length; i++) {
-    matrix[i] = [i];
-  }
-
-  for (let j = 0; j <= str1.length; j++) {
-    matrix[0][j] = j;
-  }
-
-  for (let i = 1; i <= str2.length; i++) {
-    for (let j = 1; j <= str1.length; j++) {
-      if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
-        matrix[i][j] = matrix[i - 1][j - 1];
-      } else {
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j - 1] + 1,
-          matrix[i][j - 1] + 1,
-          matrix[i - 1][j] + 1
-        );
-      }
-    }
-  }
-
-  return matrix[str2.length][str1.length];
-}
-
-// Helper function to calculate cross-connection confidence
-function calculateCrossConnectionConfidence(word1: any, word2: any, connectionType: string): number {
-  let confidence = 0.5; // Base confidence
-
-  // Boost for exact matches
-  if (word1.text.toLowerCase() === word2.text.toLowerCase()) {
-    confidence += 0.3;
-  }
-
-  // Boost for similar languages
-  if (areLanguagesRelated(word1.language, word2.language)) {
-    confidence += 0.2;
-  }
-
-  // Boost for proto-language connections
-  if (word1.language.includes('pro') || word2.language.includes('pro')) {
-    confidence += 0.1;
-  }
-
-  // Cap confidence for cross-connections (they're always less certain)
-  return Math.min(0.8, confidence);
-}
-
-// Helper function to check if languages are related
-function areLanguagesRelated(lang1: string, lang2: string): boolean {
-  const indoEuropean = ['en', 'es', 'fr', 'de', 'it', 'pt', 'la', 'gr', 'ru', 'pl', 'nl', 'da', 'sv', 'no'];
-  return indoEuropean.includes(lang1) && indoEuropean.includes(lang2);
-}
-
 // Create Fastify instance
 const fastify: FastifyInstance = Fastify({
   logger: true
@@ -269,7 +103,7 @@ fastify.get('/api/etymology/search', async (request: FastifyRequest<{ Querystrin
   try {
     logger.info(`Searching etymology for: "${word}" (language: ${language || 'any'})`);
 
-    const etymologyData = await getEtymologyService().findEtymologicalConnections(word, language);
+    const etymologyData = await etymologyService.findEtymologicalConnections(word, language);
 
     // Convert to graph format
     const nodes: GraphNode[] = [];
@@ -320,110 +154,6 @@ fastify.get('/api/etymology/search', async (request: FastifyRequest<{ Querystrin
   }
 });
 
-// Expand a specific node to show its connections
-fastify.post('/api/etymology/expand', async (request: FastifyRequest<{ Body: ExpandRequestBody }>, reply: FastifyReply) => {
-  const { wordId, wordText, language, existingNodes, existingEdges, maxConnections = 8 } = request.body;
-
-  if (!wordId || !wordText || !language) {
-    return reply.code(400).send({ error: 'wordId, wordText, and language are required' });
-  }
-
-  try {
-    logger.info(`Expanding node: "${wordText}" (${language})`);
-
-    const etymologyData = await getEtymologyService().findEtymologicalConnections(wordText, language);
-
-    // Find the expanding node
-    const expandingNode = existingNodes.find((node: GraphNode) => node.id === wordId);
-    if (!expandingNode) {
-      return reply.code(404).send({ error: 'Node not found in existing nodes' });
-    }
-
-    // Select connections with randomization and PIE prioritization
-    const selectedConnections = selectConnectionsWithRandomization(etymologyData.connections, maxConnections, true);
-
-    const newNodes: GraphNode[] = [];
-    const newEdges: GraphEdge[] = [];
-
-    // Add new nodes and edges for selected connections
-    selectedConnections.forEach((connection: Connection) => {
-      // Check if this node already exists
-      const existingNode = existingNodes.find((node: GraphNode) =>
-        node.data.word.text.toLowerCase() === connection.word.text.toLowerCase() &&
-        node.data.word.language === connection.word.language
-      );
-
-      let targetNodeId: string;
-
-      if (!existingNode) {
-        // Create new node
-        targetNodeId = connection.word.id;
-        newNodes.push({
-          id: targetNodeId,
-          data: {
-            word: connection.word,
-            expanded: false,
-            isSource: false
-          }
-        });
-      } else {
-        // Use existing node
-        targetNodeId = existingNode.id;
-      }
-
-      // Create edge
-      const edgeId = `${wordId}-${targetNodeId}`;
-
-      // Check if edge already exists
-      const existingEdge = existingEdges.find((edge: GraphEdge) => edge.id === edgeId);
-      if (!existingEdge) {
-        newEdges.push({
-          id: edgeId,
-          source: wordId,
-          target: targetNodeId,
-          type: connection.type,
-          data: {
-            connection: connection
-          }
-        });
-      }
-    });
-
-    // Find cross-node connections
-    const crossConnections = findCrossNodeConnections(expandingNode, existingNodes, existingEdges);
-
-    // Add cross-connection edges
-    crossConnections.forEach(crossConn => {
-      const edgeId = `${crossConn.sourceNodeId}-${crossConn.targetNodeId}`;
-
-      // Check if edge already exists
-      const existingEdge = [...existingEdges, ...newEdges].find((edge: GraphEdge) => edge.id === edgeId);
-      if (!existingEdge) {
-        newEdges.push({
-          id: edgeId,
-          source: crossConn.sourceNodeId,
-          target: crossConn.targetNodeId,
-          type: crossConn.connection.type,
-          data: {
-            connection: crossConn.connection
-          }
-        });
-      }
-    });
-
-    reply.send({
-      newNodes,
-      newEdges,
-      expandedNodeId: wordId,
-      crossConnections: crossConnections.length
-    });
-
-  } catch (error) {
-    logger.error({ error }, 'Error expanding node');
-    reply.code(500).send({ error: 'Internal server error' });
-  }
-});
-
 // Get initial etymology data for a word (used for fresh starts)
 fastify.post('/api/etymology/initial', async (request: FastifyRequest<{ Body: InitialRequestBody }>, reply: FastifyReply) => {
   const { word, language = 'en', maxConnections = 12 } = request.body;
@@ -435,7 +165,7 @@ fastify.post('/api/etymology/initial', async (request: FastifyRequest<{ Body: In
   try {
     logger.info(`Getting initial etymology data for: "${word}" (${language})`);
 
-    const etymologyData = await getEtymologyService().findEtymologicalConnections(word, language);
+    const etymologyData = await etymologyService.findEtymologicalConnections(word, language);
 
     // Select connections with enhanced randomization
     const selectedConnections = selectConnectionsWithRandomization(etymologyData.connections, maxConnections, true);
@@ -527,7 +257,7 @@ fastify.post('/api/etymology/neighbors', async (request: FastifyRequest<{ Body: 
       return reply.send(cached);
     }
 
-    const etymologyData = await getEtymologyService().findEtymologicalConnections(word, language);
+    const etymologyData = await etymologyService.findEtymologicalConnections(word, language);
 
     // Select connections with randomization, excluding already shown nodes
     const availableConnections = etymologyData.connections.filter((conn: Connection) =>
@@ -588,7 +318,7 @@ fastify.get('/api/words/:wordText', async (request: FastifyRequest<{ Params: { w
   }
 
   try {
-    const etymologyData = await getEtymologyService().findEtymologicalConnections(wordText, 'en');
+    const etymologyData = await etymologyService.findEtymologicalConnections(wordText, 'en');
     reply.send({
       word: etymologyData.sourceWord,
       connections: etymologyData.connections.slice(0, 5) // Limit to 5 for details view

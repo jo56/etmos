@@ -51,15 +51,6 @@ export interface SearchQueryParams {
   language?: string;
 }
 
-export interface ExpandRequestBody {
-  wordId: string;
-  wordText: string;
-  language: string;
-  existingNodes: GraphNode[];
-  existingEdges: GraphEdge[];
-  maxConnections?: number;
-}
-
 export interface InitialRequestBody {
   word: string;
   language?: string;

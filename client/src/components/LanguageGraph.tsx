@@ -4,7 +4,7 @@ import type { GraphNode, GraphEdge, Word, D3Node, D3Link } from '../types';
 import type { ThemeName } from '../App';
 import { themes } from './ThemeSelector';
 import { getEdgeStyle } from '../utils/edgeUtils';
-import { getLanguageColor, getLanguageName } from '../constants/languages';
+import { getLanguageColor, getLanguageName } from '../../../shared/constants/languages';
 import {
   LINK_FORCE_CONFIG,
   CHARGE_FORCE_CONFIG,
