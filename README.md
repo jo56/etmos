@@ -6,7 +6,7 @@
       </a>
       <br>
       <a href="https://etmos.pages.dev" target="_blank">
-          <b>etmos.pages.dev</b>
+          <b>https://etmos.pages.dev</b>
       </a>
     <br>
     A visual, interactive graph-based application for exploring etymological connections between words 
