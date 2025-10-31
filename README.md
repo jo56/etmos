@@ -10,9 +10,11 @@
       </a>
     <br>
     A visual, interactive graph-based application for exploring etymological connections between words across different languages. 
+    <br>
+    Check out <a href="https://github.com/jo56/etmos-ai" target="_blank">etmos-ai</a> for an AI-powered version with natural language queries and enhanced
+      features.
   </div>
- 
-
+<br>
 
 ## Tech Stack
 
