@@ -3,6 +3,9 @@
   "version": "2.0.0",
   "description": "Visual graph-based representation of etymological connections between words across languages",
   "main": "server/dist/index.js",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "concurrently \"npm run server:dev\" \"npm run client:dev\"",
     "client:dev": "cd client && npm run dev",

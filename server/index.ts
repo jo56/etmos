@@ -1,4 +1,4 @@
-import Fastify, { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import Fastify, { FastifyInstance, FastifyRequest, FastifyReply, FastifyError } from 'fastify';
 import cors from '@fastify/cors';
 import formbody from '@fastify/formbody';
 import rateLimit from '@fastify/rate-limit';
@@ -116,7 +116,7 @@ fastify.register(cors, {
 fastify.register(formbody);
 
 // Global error handler
-fastify.setErrorHandler((error, request, reply) => {
+fastify.setErrorHandler((error: FastifyError, request, reply) => {
   // Log error details for debugging
   logger.error({
     error: error.message,

@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Backend server for language mapping application",
   "main": "dist/index.js",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only index.ts",
     "start": "ts-node index.ts",
